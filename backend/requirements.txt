@@ -1,0 +1,78 @@
+# =========================================================
+# Agentic RAG — Backend Requirements
+# FastAPI + LangChain + PostgreSQL/pgvector + PaddleOCR + Ollama
+# =========================================================
+
+# --- Core API ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.1
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+python-multipart==0.0.9        # untuk form-data / file upload
+
+# --- Database (PostgreSQL + pgvector) ---
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.9
+pgvector==0.3.4
+alembic==1.13.2                 # migrasi schema (opsional tapi disarankan)
+
+# --- Agent / RAG Framework ---
+langchain==0.2.16
+langchain-community==0.2.16
+langchain-ollama==0.1.3
+langchain-text-splitters==0.2.4
+
+# --- Document Loading & Chunking ---
+pypdf==4.2.0
+unstructured==0.15.13           # opsional: loader dokumen lebih general
+
+# --- OCR ---
+setuptools>=70                   # dibutuhkan paddle saat runtime (venv modern tidak menyertakannya)
+paddleocr==3.7.0
+paddlepaddle==3.3.1              # 2.6.x segfault di Apple M4 (OpenBLAS bawaan); gunakan paddlepaddle-gpu jika ada GPU + CUDA cocok
+
+# --- Utilities ---
+numpy==1.26.4
+Pillow==10.3.0
+joblib==1.4.2
+
+# --- Auth (Security) ---
+python-jose[cryptography]==3.3.0
+bcrypt==5.0.0                    # dipakai langsung; passlib 1.7.4 tidak kompatibel dengan bcrypt 5.x
+
+# =========================================================
+# Optional — Data Analysis / Notebook (tidak dibutuhkan backend,
+# hanya jika ingin eksplorasi data / notebook secara lokal)
+# =========================================================
+# pandas==2.2.1
+# matplotlib==3.8.4
+# seaborn==0.13.2
+# scikit-learn==1.4.2
+# scipy==1.12.0
+# jupyter==1.0.0
+# jupyterlab==4.1.6
+# openpyxl==3.1.2
+# nltk==3.8.1
+
+# =========================================================
+# Optional — Advanced NLP / Model Lokal (jika perlu ganti dari Ollama
+# ke embedding/model Python langsung)
+# =========================================================
+# sentence-transformers==2.7.0
+# transformers==4.41.0
+# torch==2.3.0
+# gensim==4.3.2
+# spacy==3.7.4
+# PySastrawi==1.2.0             # stemmer Bahasa Indonesia, jika perlu preprocessing teks lokal
+
+# =========================================================
+# Optional — Alternatif Vector Store / LLM Provider
+# (tidak dipakai di arsitektur ini karena memakai pgvector + Ollama,
+# simpan sebagai referensi jika ingin swap komponen)
+# =========================================================
+# chromadb==0.5.0
+# qdrant-client==1.9.1
+# llama-index==0.10.43
+# openai==1.30.0
+# langchain-openai==0.1.8

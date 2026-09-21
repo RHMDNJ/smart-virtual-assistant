@@ -1,0 +1,54 @@
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg17          # pgvector hanya mendukung pg17/18
+    container_name: sva-db
+    environment:
+      POSTGRES_DB: agentic_rag
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agentic_rag"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: sva-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Nilai khusus container. Sengaja TIDAK memakai env_file dari .env lokal,
+      # karena di sana host-nya `localhost` yang di dalam container menunjuk
+      # container itu sendiri, bukan Postgres maupun Ollama di host.
+      APP_ENV: development
+      DATABASE_URL: postgresql://postgres:mysecretpassword@postgres:5432/agentic_rag
+      SQL_READONLY_DATABASE_URL: postgresql://sva_readonly:readonly_secret@postgres:5432/agentic_rag
+      # Ollama berjalan di host (butuh akses GPU/Metal), bukan di dalam container.
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_LLM_MODEL: llama3.1
+      OLLAMA_EMBEDDING_MODEL: nomic-embed-text
+      EMBEDDING_DIM: "768"
+      UPLOAD_DIR: /app/storage/uploads
+      PROCESSED_DIR: /app/storage/processed
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      SQL_ALLOWED_TABLES: chat_stats,documents
+      # WAJIB diganti sebelum APP_ENV != development; aplikasi menolak start
+      # dengan nilai default di luar development.
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-secret-in-production}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

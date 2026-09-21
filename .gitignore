@@ -1,0 +1,17 @@
+.env
+__pycache__/
+*.pyc
+node_modules/
+storage/uploads/*
+storage/processed/*
+!storage/uploads/.gitkeep
+!storage/processed/.gitkeep
+# Jaring pengaman: pola di atas terjangkar ke akar repo. Kalau ada proses yang
+# terlanjur menulis storage/ di subdirektori, isinya tetap tidak ikut ter-commit.
+**/storage/uploads/*
+**/storage/processed/*
+!**/storage/uploads/.gitkeep
+!**/storage/processed/.gitkeep
+dist/
+.venv/
+venv/
