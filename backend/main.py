@@ -4,20 +4,23 @@ Entry point FastAPI — Smart Virtual Assistant (Agentic RAG).
 Endpoint sesuai desain API di README (Bagian 13 & 20).
 """
 
+import json
 import os
 import re
 import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from agent import run_agent
+from agent import run_agent, run_agent_stream
 from config import settings
-from database import get_db, init_db
+from database import SessionLocal, get_db, init_db
 from models import ChatHistory, User
 from schemas import (
     ChatHistoryItem,
@@ -195,6 +198,62 @@ def chat(
         answer=result["answer"],
         tool_used=result["tool_used"],
         sources=[SourceItem(**s) for s in result["sources"]],
+    )
+
+
+def _simpan_pesan(session_id: str, user_id: int, role: str, message: str) -> None:
+    db = SessionLocal()
+    try:
+        db.add(ChatHistory(user_id=user_id, session_id=session_id, role=role, message=message))
+        db.commit()
+    finally:
+        db.close()
+
+
+@app.post("/chat/stream")
+async def chat_stream(
+    request: ChatRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(ROLE_READ_ONLY)),
+):
+    """
+    Versi streaming dari /chat, memakai Server-Sent Events.
+
+    Dipisah dari /chat agar klien yang butuh satu respons utuh (dan seluruh
+    test kontrak API) tetap bisa memakai endpoint lama tanpa perubahan.
+    """
+    if not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message tidak boleh kosong.")
+
+    image_path = _resolve_image_path(request.image_id) if request.image_id else None
+    history = await run_in_threadpool(_load_history, db, request.session_id, user.id)
+    await run_in_threadpool(
+        _simpan_pesan, request.session_id, user.id, "user", request.message
+    )
+
+    async def penghasil_event():
+        jawaban = ""
+        try:
+            async for event in run_agent_stream(
+                request.message, image_path=image_path, chat_history=history
+            ):
+                if event["type"] == "done":
+                    jawaban = event["answer"]
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as exc:  # noqa: BLE001
+            # Stream sudah dimulai, jadi kegagalan disampaikan sebagai event,
+            # bukan sebagai HTTP error code.
+            yield f'data: {json.dumps({"type": "error", "detail": str(exc)})}\n\n'
+        finally:
+            if jawaban:
+                await run_in_threadpool(
+                    _simpan_pesan, request.session_id, user.id, "assistant", jawaban
+                )
+
+    return StreamingResponse(
+        penghasil_event(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

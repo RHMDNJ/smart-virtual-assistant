@@ -77,7 +77,73 @@ export async function login(username, password) {
   return user;
 }
 
+function tanganiTidakBerwenang() {
+  logout();
+  window.dispatchEvent(new Event("sva-unauthorized"));
+}
+
 // --- chat ----------------------------------------------------------------
+
+/**
+ * Kirim pertanyaan dan terima jawaban secara bertahap (Server-Sent Events).
+ *
+ * Memakai fetch, bukan axios, karena axios di browser tidak mengekspos body
+ * sebagai stream. EventSource juga tidak dipakai karena hanya mendukung GET
+ * tanpa header Authorization.
+ */
+export async function streamChatMessage(sessionId, message, imageId, handler = {}) {
+  const payload = { session_id: sessionId, message };
+  if (imageId) payload.image_id = imageId;
+
+  const res = await fetch(`${API_BASE_URL}/chat/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (res.status === 401) {
+    tanganiTidakBerwenang();
+    throw new Error("Sesi berakhir. Silakan masuk kembali.");
+  }
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || "Gagal menghubungi server.");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let sisa = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    sisa += decoder.decode(value, { stream: true });
+    // Event SSE dipisahkan baris kosong; potongan terakhir bisa belum utuh.
+    const bagian = sisa.split("\n\n");
+    sisa = bagian.pop() ?? "";
+
+    for (const blok of bagian) {
+      const baris = blok.split("\n").find((b) => b.startsWith("data: "));
+      if (!baris) continue;
+
+      let ev;
+      try {
+        ev = JSON.parse(baris.slice(6));
+      } catch {
+        continue; // event rusak: lewati, jangan jatuhkan seluruh stream
+      }
+
+      if (ev.type === "token") handler.onToken?.(ev.text);
+      else if (ev.type === "tool") handler.onTool?.(ev.name);
+      else if (ev.type === "done") handler.onDone?.(ev);
+      else if (ev.type === "error") handler.onError?.(ev.detail);
+    }
+  }
+}
 export async function sendChatMessage(sessionId, message, imageId = null) {
   const payload = { session_id: sessionId, message };
   if (imageId) payload.image_id = imageId;

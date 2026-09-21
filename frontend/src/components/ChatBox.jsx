@@ -1,7 +1,7 @@
 import { useState } from "react";
 import MessageBubble from "./MessageBubble.jsx";
 import UploadButton from "./UploadButton.jsx";
-import { sendChatMessage, uploadFile } from "../services/api.js";
+import { streamChatMessage, uploadFile } from "../services/api.js";
 
 const SESSION_ID = "session-001";
 
@@ -28,21 +28,40 @@ export default function ChatBox({ user, onLogout }) {
     setLoading(true);
     setError(null);
 
+    // Bubble assistant dibuat kosong lebih dulu, lalu diisi saat token berdatangan.
+    setMessages((prev) => [...prev, { role: "assistant", message: "", streaming: true }]);
+
+    const perbaruiTerakhir = (ubah) =>
+      setMessages((prev) => {
+        const salinan = [...prev];
+        salinan[salinan.length - 1] = { ...salinan[salinan.length - 1], ...ubah };
+        return salinan;
+      });
+
     try {
-      const res = await sendChatMessage(SESSION_ID, text, attachment?.imageId);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          message: res.answer,
-          sources: res.sources,
-          toolUsed: res.tool_used,
+      let terkumpul = "";
+      await streamChatMessage(SESSION_ID, text, attachment?.imageId, {
+        onTool: (name) => perbaruiTerakhir({ toolUsed: name }),
+        onToken: (potongan) => {
+          terkumpul += potongan;
+          perbaruiTerakhir({ message: terkumpul });
         },
-      ]);
+        onDone: (ev) =>
+          perbaruiTerakhir({
+            message: ev.answer || terkumpul,
+            sources: ev.sources,
+            toolUsed: ev.tool_used,
+            streaming: false,
+          }),
+        onError: (detail) => {
+          perbaruiTerakhir({ streaming: false });
+          setError(detail || "Terjadi kesalahan saat memproses jawaban.");
+        },
+      });
     } catch (err) {
-      setError(
-        err?.response?.data?.detail || "Gagal menghubungi server. Pastikan backend berjalan."
-      );
+      // Bubble kosong tidak berguna bagi user — buang dan tampilkan error.
+      setMessages((prev) => prev.slice(0, -1));
+      setError(err?.message || "Gagal menghubungi server. Pastikan backend berjalan.");
     } finally {
       setLoading(false);
     }
@@ -116,9 +135,12 @@ export default function ChatBox({ user, onLogout }) {
             sources={m.sources}
             toolUsed={m.toolUsed}
             attachment={m.attachment}
+            streaming={m.streaming}
           />
         ))}
-        {loading && <p className="text-sm text-gray-400">Assistant sedang berpikir…</p>}
+        {loading && !messages.at(-1)?.message && (
+          <p className="text-sm text-gray-400">Assistant sedang berpikir…</p>
+        )}
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
 

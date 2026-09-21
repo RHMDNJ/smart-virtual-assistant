@@ -104,9 +104,36 @@ Beberapa hal yang sengaja berbeda dari setup lokal:
 | GET    | `/auth/me`      | Identitas user saat ini                           | READ_ONLY |
 | POST   | `/auth/users`   | Buat user baru                                    | ADMIN |
 | POST   | `/chat`         | Kirim pertanyaan ke Agent (opsional: `image_id`)  | READ_ONLY |
+| POST   | `/chat/stream`  | Sama, tetapi jawaban dialirkan via SSE            | READ_ONLY |
 | GET    | `/chat/history` | Riwayat chat per `session_id` (hanya milik sendiri) | READ_ONLY |
 | POST   | `/documents`    | Tambah teks langsung ke knowledge base            | USER |
 | POST   | `/upload`       | Upload dokumen (PDF/TXT/MD) atau gambar           | USER |
+
+### Streaming (`/chat/stream`)
+
+Mengembalikan Server-Sent Events:
+
+```
+data: {"type": "tool",  "name": "rag_search"}
+data: {"type": "token", "text": "Menurut "}
+data: {"type": "done",  "answer": "...", "tool_used": "rag_search", "sources": [...]}
+```
+
+Karena header sudah terkirim saat streaming dimulai, kegagalan di tengah jalan
+dikirim sebagai `{"type": "error"}`, bukan sebagai HTTP error code.
+
+**Kenapa dua fase.** Ollama tidak mengalirkan konten ketika tools di-bind — diuji
+pada `langchain-ollama` 0.1.3 maupun 1.1.0, keduanya menghasilkan nol chunk teks,
+jadi ini bukan soal versi. Karena itu `/chat/stream` memakai dua panggilan:
+pemilihan tool (tidak streaming), lalu sintesis jawaban tanpa tools yang bisa
+streaming. Tidak ada generasi ganda — panggilan kedua menggantikan sintesis yang
+biasanya dilakukan AgentExecutor.
+
+Konsekuensinya satu putaran tool per pertanyaan. `/chat` tetap memakai
+AgentExecutor dan mendukung multi-putaran, tetapi tanpa streaming.
+
+Terukur pada llama3.1: token pertama tiba ~6,6 detik (sebelumnya user menunggu
+~9 detik tanpa umpan balik apa pun), 42 token mengalir sampai detik ke-8,7.
 
 ### Autentikasi
 
@@ -165,7 +192,8 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Frontend: layar login, penyimpanan token, auto-logout saat token ditolak, tombol upload disembunyikan untuk READ_ONLY.
 - [x] Validasi unggahan: ekstensi + MIME type + file signature (magic bytes), batas ukuran ditegakkan saat streaming.
 - [x] SQL tool berjalan sebagai PostgreSQL user read-only (`sva_readonly`) dengan `SELECT` hanya pada `chat_stats` & `documents`.
-- [x] Test otomatis: 81 test pytest.
+- [x] Streaming response via SSE (`/chat/stream`) dengan kursor mengetik di UI.
+- [x] Test otomatis: 90 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
 
@@ -209,7 +237,7 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 .venv/bin/python -m pytest
 ```
 
-54 test, selesai ~13 detik. Poin penting desainnya:
+90 test, selesai ~18 detik. Poin penting desainnya:
 
 - **Database terpisah** (`agentic_rag_test`). `conftest.py` menolak jalan jika
   `DATABASE_URL` tidak mengandung kata `test`, dan mengosongkan tabel sebelum tiap test.
@@ -218,7 +246,8 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
 Cakupan: auth & RBAC, isolasi riwayat antar user, validasi `image_id` (termasuk percobaan
 path traversal), indexing dokumen, validasi upload, hashing password, allowlist SQL, dan
-guard query kosong pada RAG.
+guard query kosong pada RAG, serta endpoint streaming (urutan event, penyimpanan
+riwayat setelah stream selesai, dan kegagalan di tengah stream).
 
 ### Perbandingan model: llama3.1 vs qwen2.5:7b
 

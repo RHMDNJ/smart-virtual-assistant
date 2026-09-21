@@ -13,6 +13,7 @@ export default function MessageBubble({
   sources = [],
   toolUsed,
   attachment,
+  streaming = false,
 }) {
   const isUser = role === "user";
 
@@ -29,9 +30,12 @@ export default function MessageBubble({
 
         <div className="prose prose-sm max-w-none">
           <ReactMarkdown>{message}</ReactMarkdown>
+          {streaming && (
+            <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-gray-400 align-middle" />
+          )}
         </div>
 
-        {!isUser && toolUsed && (
+        {!isUser && toolUsed && !streaming && (
           <div className="mt-1 text-xs opacity-60">
             {TOOL_LABEL[toolUsed] || `🔧 ${toolUsed}`}
           </div>

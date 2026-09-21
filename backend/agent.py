@@ -5,7 +5,13 @@ kebutuhan pertanyaan user, lalu menyusun jawaban akhir menggunakan Local LLM (Ol
 """
 
 from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from services.llm_service import get_llm
@@ -58,8 +64,7 @@ def get_agent_executor() -> AgentExecutor:
         return _agent_executor
 
     llm = get_llm()
-    # sql_query dibuat lewat factory agar deskripsinya memuat skema nyata database.
-    tools = [rag_search, image_ocr, build_sql_tool()]
+    tools = get_tools()
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -127,6 +132,112 @@ def run_agent(
     sources = _infer_sources(result)
 
     return {"answer": answer, "tool_used": tool_used, "sources": sources}
+
+
+_tools_cache: list | None = None
+
+
+def get_tools() -> list:
+    """Daftar tool untuk agent. sql_query dibuat lewat factory agar memuat skema."""
+    global _tools_cache
+    if _tools_cache is None:
+        _tools_cache = [rag_search, image_ocr, build_sql_tool()]
+    return _tools_cache
+
+
+def _kumpulkan_sumber(keluaran: str, sumber: list[dict]) -> None:
+    for baris in keluaran.splitlines():
+        if baris.startswith("[Sumber: "):
+            nama = baris.replace("[Sumber: ", "").rstrip("]")
+            if {"filename": nama} not in sumber:
+                sumber.append({"filename": nama})
+
+
+async def run_agent_stream(
+    user_message: str,
+    image_path: str | None = None,
+    chat_history: list[tuple[str, str]] | None = None,
+):
+    """
+    Versi streaming dari run_agent, dalam dua fase.
+
+    Ollama tidak mengalirkan konten ketika tools di-bind — diuji pada
+    langchain-ollama 0.1.3 maupun 1.1.0, keduanya menghasilkan nol chunk teks.
+    Karena itu pemilihan tool dijalankan sebagai satu panggilan biasa, lalu
+    jawaban akhir disintesis dengan panggilan TANPA tools yang bisa streaming.
+    Dengan begitu tidak ada generasi ganda: panggilan kedua menggantikan
+    sintesis yang biasanya dilakukan AgentExecutor.
+
+    Konsekuensinya hanya satu putaran tool per pertanyaan. Untuk alur
+    multi-putaran, pakai /chat (AgentExecutor) yang tidak streaming.
+
+    Event yang di-yield:
+      {"type": "tool",  "name": "rag_search"}
+      {"type": "token", "text": "..."}
+      {"type": "done",  "answer": ..., "tool_used": ..., "sources": [...]}
+    """
+    llm = get_llm()
+    tools = get_tools()
+    peta_tool = {t.name: t for t in tools}
+
+    pesan: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
+    pesan.extend(_to_langchain_messages(chat_history))
+
+    masukan = user_message
+    if image_path:
+        masukan = f"{user_message}\n\n(File gambar terlampir di path: {image_path})"
+    pesan.append(HumanMessage(content=masukan))
+
+    # Fase 1 — pemilihan tool (tidak bisa streaming).
+    keputusan = await llm.bind_tools(tools).ainvoke(pesan)
+    panggilan = getattr(keputusan, "tool_calls", None) or []
+
+    if not panggilan:
+        # Tidak butuh tool: jawaban sudah lengkap di fase ini. Tidak dipecah
+        # menjadi token palsu — jalur ini memang yang paling cepat.
+        teks = keputusan.content or ""
+        if teks:
+            yield {"type": "token", "text": teks}
+        yield {"type": "done", "answer": teks, "tool_used": "llm_direct", "sources": []}
+        return
+
+    sumber: list[dict] = []
+    tool_terakhir = "unknown"
+    pesan.append(keputusan)
+
+    for panggil in panggilan:
+        nama = panggil.get("name", "")
+        tool_terakhir = nama
+        yield {"type": "tool", "name": nama}
+
+        tool = peta_tool.get(nama)
+        if tool is None:
+            hasil = f"Tool '{nama}' tidak dikenal."
+        else:
+            try:
+                hasil = await tool.ainvoke(panggil.get("args", {}))
+            except Exception as exc:  # noqa: BLE001
+                hasil = f"Tool gagal dijalankan: {exc}"
+
+        if nama == "rag_search" and isinstance(hasil, str):
+            _kumpulkan_sumber(hasil, sumber)
+
+        pesan.append(ToolMessage(content=str(hasil), tool_call_id=panggil.get("id", "")))
+
+    # Fase 2 — sintesis jawaban, tanpa tools sehingga streaming aktif.
+    potongan: list[str] = []
+    async for chunk in llm.astream(pesan):
+        teks = getattr(chunk, "content", "") or ""
+        if teks:
+            potongan.append(teks)
+            yield {"type": "token", "text": teks}
+
+    yield {
+        "type": "done",
+        "answer": "".join(potongan),
+        "tool_used": tool_terakhir,
+        "sources": sumber,
+    }
 
 
 def _infer_tool_used(result: dict) -> str:

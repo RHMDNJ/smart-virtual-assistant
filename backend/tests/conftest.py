@@ -60,7 +60,19 @@ def matikan_llm_dan_embedding(monkeypatch):
             "sources": [],
         }
 
+    async def fake_run_agent_stream(message, image_path=None, chat_history=None):
+        yield {"type": "tool", "name": "rag_search"}
+        for potongan in ("Ini ", "jawaban ", "bertahap."):
+            yield {"type": "token", "text": potongan}
+        yield {
+            "type": "done",
+            "answer": "Ini jawaban bertahap.",
+            "tool_used": "rag_search",
+            "sources": [{"filename": "kebijakan.txt"}],
+        }
+
     monkeypatch.setattr(main, "run_agent", fake_run_agent)
+    monkeypatch.setattr(main, "run_agent_stream", fake_run_agent_stream)
     monkeypatch.setattr(
         "services.document_service.embed_documents",
         lambda texts: [EMBEDDING_DUMMY for _ in texts],
