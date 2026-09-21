@@ -160,6 +160,44 @@ berikutnya — server menerjemahkannya ke path di `UPLOAD_DIR` (divalidasi agar 
 dipakai membaca file lain), lalu agent menjalankan `image_ocr`. Client tidak pernah
 mengirim path file.
 
+## Retrieval — Hybrid Search
+
+`rag_search` menggabungkan dua pencarian lalu menyatukan peringkatnya dengan
+**Reciprocal Rank Fusion**:
+
+- **Vector search** (pgvector, cosine) menangkap kemiripan makna/parafrase.
+- **Full-text search** PostgreSQL dengan konfigurasi `indonesian` menangkap kata
+  kunci literal. Stemming-nya bekerja untuk Bahasa Indonesia: "kebijakan" → `bijak`,
+  "perusahaan" → `usaha`, "karyawan" → `karyaw`.
+
+Kolom `content_tsv` adalah *generated column*, jadi selalu sinkron dengan `content`
+tanpa perlu dipelihara aplikasi, dengan index GIN di atasnya.
+
+Satu catatan implementasi: `plainto_tsquery` menggabungkan semua kata dengan AND,
+sehingga satu kata yang tidak ada di dokumen membatalkan seluruh kecocokan —
+terlalu ketat untuk pertanyaan natural. Operatornya diubah menjadi OR, dan
+`ts_rank_cd` yang menentukan peringkat.
+
+### Hasil pengukuran
+
+`backend/seed_korpus.py` mengisi 12 dokumen sintetis, `backend/eval_retrieval.py`
+mengukur recall@3 atas 14 pertanyaan:
+
+| mode | istilah literal | parafrase | total |
+|---|---|---|---|
+| vektor saja | 6/6 | 4/8 | 10/14 (71%) |
+| hybrid | 6/6 | **5/8** | **11/14 (79%)** |
+
+Temuan yang penting dicatat: dugaan awal bahwa hybrid menolong pada istilah
+literal (nomor peraturan, singkatan seperti HPS/TAPD/KIB) **tidak terbukti** —
+pencarian vektor sudah 6/6 di sana. Perbaikan justru muncul pada parafrase, dan
+hanya satu kasus. Kegagalan yang tersisa semuanya parafrase, yang menunjuk ke
+kualitas embedding Bahasa Indonesia sebagai batas sebenarnya, bukan ketiadaan
+pencarian kata kunci.
+
+Parameter di `.env`: `RAG_TOP_K`, `RAG_CANDIDATE_K`, `RAG_HYBRID`, `RAG_RRF_K`,
+`RAG_FTS_CONFIG`.
+
 ## Cara Kerja Agent
 
 Agent (`backend/agent.py`) menggunakan LangChain **tool-calling agent** di atas LLM lokal (Ollama). Agent memilih salah satu dari tiga tool sesuai kebutuhan pertanyaan:
@@ -193,7 +231,8 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Validasi unggahan: ekstensi + MIME type + file signature (magic bytes), batas ukuran ditegakkan saat streaming.
 - [x] SQL tool berjalan sebagai PostgreSQL user read-only (`sva_readonly`) dengan `SELECT` hanya pada `chat_stats` & `documents`.
 - [x] Streaming response via SSE (`/chat/stream`) dengan kursor mengetik di UI.
-- [x] Test otomatis: 90 test pytest.
+- [x] Hybrid search (vector + full-text Indonesia) dengan Reciprocal Rank Fusion.
+- [x] Test otomatis: 96 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
 
@@ -237,7 +276,7 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 .venv/bin/python -m pytest
 ```
 
-90 test, selesai ~18 detik. Poin penting desainnya:
+96 test, selesai ~18 detik. Poin penting desainnya:
 
 - **Database terpisah** (`agentic_rag_test`). `conftest.py` menolak jalan jika
   `DATABASE_URL` tidak mengandung kata `test`, dan mengosongkan tabel sebelum tiap test.

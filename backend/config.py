@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     PROCESSED_DIR: str = "./storage/processed"
     MAX_UPLOAD_SIZE_MB: int = 20
 
+    # RAG / retrieval
+    RAG_TOP_K: int = 4               # jumlah chunk yang diberikan ke LLM
+    RAG_CANDIDATE_K: int = 20        # kandidat yang diambil tiap retriever sebelum digabung
+    RAG_HYBRID: bool = True          # gabungkan vector search dengan full-text search
+    RAG_RRF_K: int = 60              # konstanta Reciprocal Rank Fusion
+    RAG_FTS_CONFIG: str = "indonesian"
+
     # OCR
     OCR_LANG: str = "id"  # PaddleOCR: "id" (Indonesia), "en", dll.
     OCR_USE_ANGLE_CLS: bool = False  # klasifikasi orientasi baris; aktifkan jika gambar miring/terbalik

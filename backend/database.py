@@ -109,6 +109,20 @@ def init_db():
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS chat_history_user_idx ON chat_history (user_id);")
         )
+        # Kolom tsvector untuk full-text search (hybrid retrieval). Generated
+        # column: selalu sinkron dengan `content`, tidak perlu di-maintain aplikasi.
+        conn.execute(
+            text(
+                "ALTER TABLE documents ADD COLUMN IF NOT EXISTS content_tsv tsvector "
+                "GENERATED ALWAYS AS (to_tsvector('indonesian', content)) STORED;"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS documents_content_tsv_idx "
+                "ON documents USING gin (content_tsv);"
+            )
+        )
         # SQL tool hanya boleh melihat metadata chat, bukan isinya. Tanpa view ini
         # agent dapat menjalankan `SELECT message FROM chat_history` dan membaca
         # percakapan milik user lain, menembus isolasi pada /chat/history.
