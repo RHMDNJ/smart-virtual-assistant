@@ -86,6 +86,23 @@ def init_db():
 
     Base.metadata.create_all(bind=engine)
 
+    with engine.connect() as conn:
+        dim_kolom = conn.execute(
+            text(
+                "SELECT atttypmod FROM pg_attribute "
+                "WHERE attrelid = 'documents'::regclass AND attname = 'embedding'"
+            )
+        ).scalar()
+        if dim_kolom is not None and dim_kolom != settings.EMBEDDING_DIM:
+            # Sengaja tidak diperbaiki otomatis: mengubah dimensi berarti membuang
+            # seluruh embedding yang ada.
+            logging.getLogger(__name__).warning(
+                "Dimensi kolom embedding (%s) tidak cocok dengan EMBEDDING_DIM (%s). "
+                "Jalankan reindex_embeddings.py untuk menghitung ulang.",
+                dim_kolom,
+                settings.EMBEDDING_DIM,
+            )
+
     # Index HNSW untuk cosine similarity search. Tanpa ini setiap query RAG
     # melakukan sequential scan ke seluruh tabel documents.
     with engine.connect() as conn:

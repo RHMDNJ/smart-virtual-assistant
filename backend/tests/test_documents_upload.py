@@ -4,6 +4,7 @@ import io
 
 from sqlalchemy import select
 
+from config import settings
 from database import SessionLocal
 from models import Document
 
@@ -25,7 +26,7 @@ def test_documents_mengindeks_teks(client, header_user):
         assert len(docs) == body["chunks"]
         assert docs[0].filename == "kebijakan.txt"
         assert docs[0].metadata_ == {"source": "kebijakan.txt"}
-        assert len(docs[0].embedding) == 768
+        assert len(docs[0].embedding) == settings.EMBEDDING_DIM
     finally:
         db.close()
 

@@ -37,6 +37,20 @@ EMBEDDING_DUMMY = [0.01] * settings.EMBEDDING_DIM
 def siapkan_database():
     assert "test" in settings.DATABASE_URL, "Test menolak jalan di database non-test."
     init_db()
+
+    # init_db sengaja tidak mengubah dimensi kolom embedding secara otomatis
+    # (di produksi itu berarti membuang data). Di database test datanya memang
+    # sekali pakai, jadi kolomnya dibuat ulang bila dimensinya berbeda.
+    from reindex_embeddings import buat_ulang_kolom, dimensi_kolom_sekarang
+
+    with engine.connect() as conn:
+        if dimensi_kolom_sekarang(conn) != settings.EMBEDDING_DIM:
+            perlu = True
+        else:
+            perlu = False
+    if perlu:
+        buat_ulang_kolom(settings.EMBEDDING_DIM)
+
     yield
 
 

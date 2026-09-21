@@ -183,17 +183,32 @@ terlalu ketat untuk pertanyaan natural. Operatornya diubah menjadi OR, dan
 `backend/seed_korpus.py` mengisi 12 dokumen sintetis, `backend/eval_retrieval.py`
 mengukur recall@3 atas 14 pertanyaan:
 
-| mode | istilah literal | parafrase | total |
-|---|---|---|---|
-| vektor saja | 6/6 | 4/8 | 10/14 (71%) |
-| hybrid | 6/6 | **5/8** | **11/14 (79%)** |
+| embedding | mode | literal | parafrase | total |
+|---|---|---|---|---|
+| nomic-embed-text (768) | vektor saja | 6/6 | 4/8 | 10/14 (71%) |
+| nomic-embed-text (768) | hybrid | 6/6 | 5/8 | 11/14 (79%) |
+| **bge-m3 (1024)** | vektor saja | 6/6 | 8/8 | **14/14 (100%)** |
+| **bge-m3 (1024)** | hybrid | 6/6 | 8/8 | **14/14 (100%)** |
 
-Temuan yang penting dicatat: dugaan awal bahwa hybrid menolong pada istilah
-literal (nomor peraturan, singkatan seperti HPS/TAPD/KIB) **tidak terbukti** —
-pencarian vektor sudah 6/6 di sana. Perbaikan justru muncul pada parafrase, dan
-hanya satu kasus. Kegagalan yang tersisa semuanya parafrase, yang menunjuk ke
-kualitas embedding Bahasa Indonesia sebagai batas sebenarnya, bukan ketiadaan
-pencarian kata kunci.
+Dua temuan yang penting dicatat.
+
+**Pertama**, dugaan bahwa hybrid menolong pada istilah literal (nomor peraturan,
+singkatan seperti HPS/TAPD/KIB) **tidak terbukti** — pencarian vektor sudah 6/6
+di sana. Perbaikannya hanya satu kasus parafrase.
+
+**Kedua**, batas sebenarnya ada pada embedding model, bukan pada metode
+retrieval. Mengganti `nomic-embed-text` dengan `bge-m3` menaikkan recall dari
+71% ke 100% dan menghapus seluruh kegagalan parafrase — jauh melampaui dampak
+hybrid search. Hybrid tetap dipertahankan karena murah dan menolong pada korpus
+besar dengan istilah literal langka, tetapi pemilihan embedding model adalah
+tuas yang jauh lebih besar.
+
+Ganti embedding model dengan `backend/reindex_embeddings.py` (dokumen tidak perlu
+diunggah ulang karena `content` tersimpan):
+
+```bash
+OLLAMA_EMBEDDING_MODEL=bge-m3 EMBEDDING_DIM=1024 .venv/bin/python reindex_embeddings.py
+```
 
 Parameter di `.env`: `RAG_TOP_K`, `RAG_CANDIDATE_K`, `RAG_HYBRID`, `RAG_RRF_K`,
 `RAG_FTS_CONFIG`.
@@ -232,6 +247,7 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] SQL tool berjalan sebagai PostgreSQL user read-only (`sva_readonly`) dengan `SELECT` hanya pada `chat_stats` & `documents`.
 - [x] Streaming response via SSE (`/chat/stream`) dengan kursor mengetik di UI.
 - [x] Hybrid search (vector + full-text Indonesia) dengan Reciprocal Rank Fusion.
+- [x] Embedding bge-m3 (recall@3 pada korpus uji: 71% -> 100%).
 - [x] Test otomatis: 96 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
