@@ -14,6 +14,8 @@ export default {
         muted: "rgb(var(--muted) / <alpha-value>)",
         brand: "rgb(var(--brand) / <alpha-value>)",
         "brand-ink": "rgb(var(--brand-ink) / <alpha-value>)",
+        navy: "rgb(var(--navy) / <alpha-value>)",
+        cyan: "rgb(var(--cyan) / <alpha-value>)",
       },
       keyframes: {
         "fade-up": {

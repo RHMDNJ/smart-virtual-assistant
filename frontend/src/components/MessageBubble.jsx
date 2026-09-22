@@ -8,15 +8,25 @@ const TOOL_META = {
 };
 
 function Avatar({ isUser }) {
+  if (isUser) {
+    return (
+      <div
+        className="grid h-8 w-8 shrink-0 select-none place-items-center rounded-full bg-brand text-[13px] font-semibold text-brand-ink"
+        aria-hidden="true"
+      >
+        A
+      </div>
+    );
+  }
   return (
-    <div
-      className={`grid h-8 w-8 shrink-0 select-none place-items-center rounded-full text-[13px] font-semibold ${
-        isUser ? "bg-brand text-brand-ink" : "border border-line bg-raised text-muted"
-      }`}
+    <img
+      src="/brand/maskot-64.png"
+      alt=""
       aria-hidden="true"
-    >
-      {isUser ? "A" : "✦"}
-    </div>
+      width={32}
+      height={32}
+      className="h-8 w-8 shrink-0 select-none rounded-full border border-line bg-raised object-contain p-0.5"
+    />
   );
 }
 

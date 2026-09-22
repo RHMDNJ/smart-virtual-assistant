@@ -30,17 +30,47 @@ export default function LoginForm({ onLoggedIn }) {
     "placeholder:text-muted/70 focus:border-brand focus:ring-4 focus:ring-brand/15";
 
   return (
-    <div className="grid min-h-full place-items-center px-4 py-10">
+    <div className="relative grid min-h-full place-items-center overflow-hidden px-4 py-10">
+      {/* Banner brand sebagai latar; versi terang dan gelap dipilih lewat media query. */}
+      <img
+        src="/brand/banner-terang.webp"
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover opacity-90 dark:hidden"
+      />
+      <img
+        src="/brand/banner-gelap.webp"
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 hidden h-full w-full select-none object-cover dark:block"
+      />
+
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm animate-scale-in rounded-2xl border border-line bg-raised p-7 shadow-xl shadow-black/[.04]"
+        className="relative w-full max-w-sm animate-scale-in rounded-2xl border border-line bg-raised/95 p-7 shadow-2xl shadow-navy/20 backdrop-blur"
       >
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-brand text-xl text-brand-ink shadow-lg shadow-brand/25">
-            ✦
-          </div>
-          <h1 className="text-lg font-semibold tracking-tight">Smart Virtual Assistant</h1>
-          <p className="mt-1 text-sm text-muted">Masuk untuk melanjutkan.</p>
+          {/* Wordmark ditulis sebagai teks, bukan gambar: logo raster harus di-invert
+              di mode gelap, dan filter itu mengubah maskot jadi siluet tanpa wajah. */}
+          <img
+            src="/brand/maskot-256.png"
+            alt=""
+            aria-hidden="true"
+            width={96}
+            height={96}
+            className="mb-4 h-24 w-24 select-none object-contain drop-shadow-md"
+          />
+          <h1 className="text-2xl font-extrabold tracking-tight">
+            <span className="text-navy dark:text-ink">HELP</span>
+            <span className="text-brand">DESK</span>
+          </h1>
+          <p className="mt-0.5 text-[13px] font-semibold text-navy/80 dark:text-ink/70">
+            Pusat Bantuan Layanan Digital
+          </p>
+          <p className="text-[11px] text-muted">
+            Pemerintah Kabupaten Hulu Sungai Selatan
+          </p>
+          <p className="mt-4 text-sm text-muted">Masuk untuk melanjutkan.</p>
         </div>
 
         <label className="mb-1.5 block text-xs font-medium text-muted" htmlFor="username">

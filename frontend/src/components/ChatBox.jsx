@@ -124,11 +124,22 @@ export default function ChatBox({ user, onLogout }) {
     <div className="flex h-full flex-col bg-surface">
       <header className="sticky top-0 z-10 border-b border-line bg-surface/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 py-3">
-          <div className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-sm text-brand-ink">
-            ✦
-          </div>
+          <img
+            src="/brand/maskot-64.png"
+            alt=""
+            aria-hidden="true"
+            width={36}
+            height={36}
+            className="h-9 w-9 shrink-0 select-none object-contain"
+          />
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold tracking-tight">Smart Virtual Assistant</h1>
+            <h1 className="truncate text-sm font-bold tracking-tight">
+              <span className="text-navy dark:text-ink">HELP</span>
+              <span className="text-brand">DESK</span>
+              <span className="ml-1.5 font-normal text-muted">
+                · Pusat Bantuan Layanan Digital
+              </span>
+            </h1>
             <p className="flex items-center gap-1.5 text-[11px] text-muted">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-emerald-500" />
@@ -160,9 +171,14 @@ export default function ChatBox({ user, onLogout }) {
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6">
           {messages.length === 0 && (
             <div className="animate-fade-up py-10 text-center">
-              <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-line bg-raised text-2xl">
-                ✦
-              </div>
+              <img
+                src="/brand/maskot-256.png"
+                alt=""
+                aria-hidden="true"
+                width={112}
+                height={112}
+                className="mx-auto mb-4 h-28 w-28 animate-scale-in select-none object-contain drop-shadow-sm"
+              />
               <h2 className="text-base font-medium">Ada yang bisa dibantu?</h2>
               <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
                 {user?.role === "READ_ONLY"

@@ -4,24 +4,29 @@
 
 @layer base {
   :root {
-    --surface: 250 250 251;
+    /* Palet diambil dari logo HELPDESK: navy #001848, biru #0060d8, cyan #00d8f0 */
+    --surface: 247 249 252;
     --raised: 255 255 255;
-    --line: 226 228 233;
-    --ink: 22 24 29;
-    --muted: 110 116 129;
-    --brand: 37 99 235;
+    --line: 222 229 240;
+    --ink: 13 26 48;
+    --muted: 104 116 139;
+    --brand: 11 107 216;
     --brand-ink: 255 255 255;
+    --navy: 10 42 94;
+    --cyan: 0 184 232;
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --surface: 15 17 21;
-      --raised: 24 27 33;
-      --line: 44 48 57;
-      --ink: 233 236 241;
-      --muted: 143 150 164;
-      --brand: 96 148 255;
-      --brand-ink: 12 16 24;
+      --surface: 8 17 34;
+      --raised: 15 27 48;
+      --line: 32 48 74;
+      --ink: 228 235 245;
+      --muted: 141 157 181;
+      --brand: 88 158 255;
+      --brand-ink: 6 14 28;
+      --navy: 6 18 40;
+      --cyan: 56 208 248;
     }
   }
 
