@@ -62,6 +62,21 @@ npm run dev
 
 Buka `http://localhost:5173`.
 
+## Melihat aplikasi dikemudikan sendiri
+
+```bash
+cd backend && .venv/bin/python ../scripts/demo_browser.py
+```
+
+Membuka jendela Chrome sungguhan lalu menelusuri aplikasi sendiri — login,
+bertanya ke dokumen, bertanya statistik, menyapa, dan keluar — dengan kursor
+semu, sorotan elemen, dan label langkah agar prosesnya bisa diikuti.
+
+`scripts/cdp_driver.py` memakai Chrome yang sudah terpasang lewat Chrome
+DevTools Protocol, jadi tidak perlu Playwright yang mengunduh browser sendiri.
+Set `headless=True` pada `cdp.launch()` untuk menjalankannya tanpa jendela
+(dipakai pada pengujian otomatis).
+
 ## Menjalankan — dari VSCode
 
 Tekan **F5** dan pilih salah satu konfigurasi di `.vscode/launch.json`:
