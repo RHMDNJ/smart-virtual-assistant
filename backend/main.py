@@ -27,9 +27,13 @@ from schemas import (
     ChatRequest,
     ChatResponse,
     CreateUserRequest,
+    DocumentDetail,
     DocumentRequest,
     DocumentResponse,
+    DocumentSummary,
+    DocumentUpdateRequest,
     HealthResponse,
+    ReindexResponse,
     SourceItem,
     TokenResponse,
     UploadResponse,
@@ -51,7 +55,17 @@ from file_validation import (
     simpan_dengan_batas,
     validasi_unggahan,
 )
-from services.document_service import index_document, index_text
+from services.document_service import (
+    ambil_dokumen,
+    daftar_dokumen,
+    dokumen_ada,
+    ganti_dokumen,
+    hapus_dokumen,
+    hitung_chunk,
+    hitung_ulang_embedding,
+    index_document,
+    index_text,
+)
 
 # Jumlah pesan terakhir yang disertakan sebagai memori percakapan ke agent.
 HISTORY_WINDOW = 10
@@ -282,6 +296,12 @@ def create_document(
     if not request.content.strip():
         raise HTTPException(status_code=400, detail="Content tidak boleh kosong.")
 
+    if dokumen_ada(db, request.filename):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Dokumen '{request.filename}' sudah ada. Gunakan PUT untuk memperbaruinya.",
+        )
+
     try:
         chunk_count = index_text(db, request.content, request.filename)
     except ValueError as exc:
@@ -291,6 +311,81 @@ def create_document(
         raise HTTPException(status_code=500, detail=f"Gagal mengindeks dokumen: {exc}") from exc
 
     return DocumentResponse(filename=request.filename, status="indexed", chunks=chunk_count)
+
+
+@app.get("/documents", response_model=list[DocumentSummary])
+def list_documents(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role(ROLE_READ_ONLY)),
+):
+    """Ringkasan seluruh dokumen di knowledge base."""
+    return daftar_dokumen(db)
+
+
+@app.get("/documents/{filename:path}", response_model=DocumentDetail)
+def get_document(
+    filename: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role(ROLE_READ_ONLY)),
+):
+    """Isi utuh satu dokumen, hasil penggabungan kembali seluruh chunk-nya."""
+    isi = ambil_dokumen(db, filename)
+    if isi is None:
+        raise HTTPException(status_code=404, detail=f"Dokumen '{filename}' tidak ditemukan.")
+    return DocumentDetail(filename=filename, content=isi, chunks=hitung_chunk(db, filename))
+
+
+@app.put("/documents/{filename:path}", response_model=DocumentResponse)
+def update_document(
+    filename: str,
+    request: DocumentUpdateRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role(ROLE_USER)),
+):
+    """Ganti isi dokumen; chunk lama dibuang dan teks baru diindeks ulang."""
+    if not dokumen_ada(db, filename):
+        raise HTTPException(status_code=404, detail=f"Dokumen '{filename}' tidak ditemukan.")
+
+    try:
+        jumlah = ganti_dokumen(db, filename, request.content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal memperbarui dokumen: {exc}") from exc
+
+    return DocumentResponse(filename=filename, status="updated", chunks=jumlah)
+
+
+@app.delete("/documents/{filename:path}", response_model=DocumentResponse)
+def delete_document(
+    filename: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role(ROLE_ADMIN)),
+):
+    """Hapus dokumen dari knowledge base. Hanya ADMIN — tindakan ini tidak dapat dibatalkan."""
+    jumlah = hapus_dokumen(db, filename)
+    if jumlah == 0:
+        raise HTTPException(status_code=404, detail=f"Dokumen '{filename}' tidak ditemukan.")
+    return DocumentResponse(filename=filename, status="deleted", chunks=jumlah)
+
+
+@app.post("/documents/reindex", response_model=ReindexResponse)
+def reindex_documents(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role(ROLE_ADMIN)),
+):
+    """
+    Hitung ulang embedding seluruh chunk tanpa mengubah teksnya.
+
+    Operasi berat dan menyentuh seluruh knowledge base, karena itu dibatasi ADMIN.
+    """
+    try:
+        jumlah = hitung_ulang_embedding(db)
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal mengindeks ulang: {exc}") from exc
+    return ReindexResponse(reindexed=jumlah)
 
 
 @app.post("/upload", response_model=UploadResponse)
@@ -319,11 +414,18 @@ def upload(
 
     try:
         if hasil.adalah_dokumen:
+            # Mengunggah berkas bernama sama berarti memperbarui, bukan menduplikasi.
+            diperbarui = dokumen_ada(db, file.filename)
+            if diperbarui:
+                hapus_dokumen(db, file.filename)
             chunk_count = index_document(db, dest_path, file.filename)
             return UploadResponse(
                 filename=file.filename,
                 status="processed",
-                detail=f"{chunk_count} chunk berhasil diindeks ke knowledge base.",
+                detail=(
+                    f"{chunk_count} chunk berhasil diindeks ke knowledge base"
+                    + (" (menggantikan versi sebelumnya)." if diperbarui else ".")
+                ),
             )
 
         # Gambar: disimpan dan dikembalikan sebagai image_id. Frontend mengirim id ini

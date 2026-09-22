@@ -161,7 +161,12 @@ Beberapa hal yang sengaja berbeda dari setup lokal:
 | POST   | `/chat`         | Kirim pertanyaan ke Agent (opsional: `image_id`)  | READ_ONLY |
 | POST   | `/chat/stream`  | Sama, tetapi jawaban dialirkan via SSE            | READ_ONLY |
 | GET    | `/chat/history` | Riwayat chat per `session_id` (hanya milik sendiri) | READ_ONLY |
-| POST   | `/documents`    | Tambah teks langsung ke knowledge base            | USER |
+| GET    | `/documents`    | Daftar dokumen beserta jumlah bagian & ukuran     | READ_ONLY |
+| GET    | `/documents/{nama}` | Isi utuh satu dokumen (chunk digabung kembali) | READ_ONLY |
+| POST   | `/documents`    | Tambah dokumen baru (409 bila nama sudah ada)     | USER |
+| PUT    | `/documents/{nama}` | Ganti isi dokumen, indeks ulang otomatis      | USER |
+| DELETE | `/documents/{nama}` | Hapus dokumen dari knowledge base             | ADMIN |
+| POST   | `/documents/reindex` | Hitung ulang embedding seluruh bagian        | ADMIN |
 | POST   | `/upload`       | Upload dokumen (PDF/TXT/MD) atau gambar           | USER |
 
 ### Streaming (`/chat/stream`)
@@ -214,6 +219,31 @@ percakapan user lain meskipun menebak `session_id` milik orang tersebut.
 berikutnya — server menerjemahkannya ke path di `UPLOAD_DIR` (divalidasi agar tidak bisa
 dipakai membaca file lain), lalu agent menjalankan `image_ocr`. Client tidak pernah
 mengirim path file.
+
+## Melatih SAVIRA — kelola knowledge base
+
+Tombol **Knowledge base** di header membuka panel pengelolaan. Bagi sistem RAG,
+inilah bentuk "melatih" yang sebenarnya: mengganti bahan bacaan asisten, bukan
+melatih ulang bobot model.
+
+- **Lihat** seluruh dokumen beserta jumlah bagian, ukuran, dan tanggal.
+- **Tulis** dokumen langsung dari UI, atau **unggah** PDF/TXT/MD.
+- **Sunting** isi dokumen; chunk lama dibuang dan teks baru diindeks ulang dalam
+  satu transaksi, sehingga dokumen tidak pernah setengah terhapus bila embedding
+  gagal di tengah jalan.
+- **Hapus** dokumen (khusus ADMIN, dengan konfirmasi).
+- **Indeks ulang** seluruh bagian setelah berganti embedding model (khusus ADMIN).
+
+Dua perilaku yang dipilih sengaja:
+
+- `POST /documents` menolak nama yang sudah ada (409) dan mengarahkan ke `PUT`.
+  Tanpa ini, menyimpan dua kali diam-diam menghasilkan dokumen kembar yang
+  saling bersaing saat retrieval.
+- Mengunggah berkas dengan nama sama berarti **memperbarui**, bukan menduplikasi.
+
+Kenapa bukan fine-tuning: melatih ulang bobot model perlu ratusan hingga ribuan
+contoh, komputasi berjam-jam, dan hasilnya sering kalah dibanding RAG yang
+datanya rapi. Mengganti dokumen berdampak seketika dan bisa ditarik kembali.
 
 ## Retrieval — Hybrid Search
 
@@ -307,7 +337,8 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Pemulihan tool call yang keluar sebagai teks (lihat catatan di bawah).
 - [x] Hybrid search (vector + full-text Indonesia) dengan Reciprocal Rank Fusion.
 - [x] Embedding bge-m3 (recall@3 pada korpus uji: 71% -> 100%).
-- [x] Test otomatis: 96 test pytest.
+- [x] Pengelolaan knowledge base lewat UI (lihat, tulis, sunting, hapus, indeks ulang).
+- [x] Test otomatis: 151 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
 
@@ -372,7 +403,7 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 .venv/bin/python -m pytest
 ```
 
-96 test, selesai ~18 detik. Poin penting desainnya:
+151 test, selesai ~27 detik. Poin penting desainnya:
 
 - **Database terpisah** (`agentic_rag_test`). `conftest.py` menolak jalan jika
   `DATABASE_URL` tidak mengandung kata `test`, dan mengosongkan tabel sebelum tiap test.

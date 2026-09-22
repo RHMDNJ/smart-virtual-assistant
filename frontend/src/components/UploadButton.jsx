@@ -24,12 +24,12 @@ export default function UploadButton({ onUpload, disabled }) {
         type="button"
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
-        title="Unggah dokumen atau gambar"
+        title="Unggah dokumen (PDF, TXT, MD) atau gambar (OCR)"
         aria-label="Unggah dokumen atau gambar"
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition hover:bg-line/60 hover:text-ink active:scale-95 disabled:opacity-40"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted/80 transition-all hover:bg-brand/10 hover:text-brand active:scale-95 disabled:opacity-40"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l7.88-7.87" />
         </svg>
       </button>
     </>

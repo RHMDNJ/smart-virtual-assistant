@@ -172,8 +172,35 @@ export async function uploadFile(file) {
   return data;
 }
 
+// --- knowledge base ------------------------------------------------------
+
+export async function listDocuments() {
+  const { data } = await api.get("/documents");
+  return data;
+}
+
+export async function getDocument(filename) {
+  const { data } = await api.get(`/documents/${encodeURIComponent(filename)}`);
+  return data;
+}
+
 export async function addDocument(filename, content) {
   const { data } = await api.post("/documents", { filename, content });
+  return data;
+}
+
+export async function updateDocument(filename, content) {
+  const { data } = await api.put(`/documents/${encodeURIComponent(filename)}`, { content });
+  return data;
+}
+
+export async function deleteDocument(filename) {
+  const { data } = await api.delete(`/documents/${encodeURIComponent(filename)}`);
+  return data;
+}
+
+export async function reindexDocuments() {
+  const { data } = await api.post("/documents/reindex");
   return data;
 }
 

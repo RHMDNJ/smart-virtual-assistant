@@ -58,6 +58,27 @@ class DocumentResponse(BaseModel):
     chunks: int
 
 
+class DocumentSummary(BaseModel):
+    filename: str
+    chunks: int
+    characters: int
+    created_at: datetime
+
+
+class DocumentDetail(BaseModel):
+    filename: str
+    content: str
+    chunks: int
+
+
+class DocumentUpdateRequest(BaseModel):
+    content: str
+
+
+class ReindexResponse(BaseModel):
+    reindexed: int
+
+
 class HealthResponse(BaseModel):
     status: str
 

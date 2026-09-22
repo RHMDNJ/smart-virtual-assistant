@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
-  darkMode: "media",
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -16,6 +16,10 @@ export default {
         "brand-ink": "rgb(var(--brand-ink) / <alpha-value>)",
         navy: "rgb(var(--navy) / <alpha-value>)",
         cyan: "rgb(var(--cyan) / <alpha-value>)",
+      },
+      boxShadow: {
+        glow: "0 0 25px -5px rgb(var(--brand) / 0.35)",
+        "glow-cyan": "0 0 25px -5px rgb(var(--cyan) / 0.35)",
       },
       keyframes: {
         "fade-up": {
