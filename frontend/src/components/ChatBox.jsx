@@ -6,7 +6,23 @@ import KnowledgeBase from "./KnowledgeBase.jsx";
 import UploadButton from "./UploadButton.jsx";
 import { streamChatMessage, uploadFile } from "../services/api.js";
 
-const SESSION_ID = "session-001";
+const KUNCI_SESI = "sva_session";
+
+function sesiBaru() {
+  return `sesi-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sesiTersimpan() {
+  try {
+    const ada = localStorage.getItem(KUNCI_SESI);
+    if (ada) return ada;
+    const baru = sesiBaru();
+    localStorage.setItem(KUNCI_SESI, baru);
+    return baru;
+  } catch {
+    return sesiBaru();
+  }
+}
 
 const FITUR = [
   {
@@ -47,6 +63,10 @@ export default function ChatBox({ user, onLogout }) {
   const [lampiran, setLampiran] = useState(null);       // { berkas, previewUrl }
   const [fase, setFase] = useState(null);               // "mengunggah" | "menjawab"
   const [bukaKB, setBukaKB] = useState(false);
+  // Riwayat percakapan dimuat backend per session_id. "Obrolan Baru" harus
+  // benar-benar mengganti id ini — kalau tidak, asisten tetap mengingat
+  // percakapan lama dan bisa menjawab dari sana, bukan dari dokumen terbaru.
+  const [sessionId, setSessionId] = useState(sesiTersimpan);
   const [isDragging, setIsDragging] = useState(false);
   const [theme, setTheme] = useState(() => {
     try {
@@ -129,10 +149,17 @@ export default function ChatBox({ user, onLogout }) {
     });
 
   function handleNewChat() {
+    const baru = sesiBaru();
+    try {
+      localStorage.setItem(KUNCI_SESI, baru);
+    } catch {
+      // localStorage bisa diblokir; sesi tetap berganti selama halaman terbuka.
+    }
+    setSessionId(baru);
     setMessages([]);
     setInput("");
     setError(null);
-    setPendingImage(null);
+    batalkanLampiran();
   }
 
   function pilihBerkas(berkas) {
@@ -216,7 +243,7 @@ export default function ChatBox({ user, onLogout }) {
     try {
       let terkumpul = "";
       await streamChatMessage(
-        SESSION_ID,
+        sessionId,
         pesanDikirim,
         imageId,
         {

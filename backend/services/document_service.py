@@ -22,6 +22,27 @@ _splitter = RecursiveCharacterTextSplitter(
 )
 
 
+# Karakter yang lazim pada dokumen berbahasa Indonesia. Teks yang sebagian besar
+# di luar himpunan ini hampir pasti hasil ekstraksi yang gagal.
+_KARAKTER_WAJAR = set(".,;:()[]{}/-–—%&'\"?!+*=#@<>|~`$^_\\")
+
+
+def _teks_kacau(teks: str, ambang: float = 0.7) -> bool:
+    """
+    True bila teks tampak hasil ekstraksi yang gagal.
+
+    Sebagian PDF memakai font subset tanpa peta ToUnicode, sehingga pypdf
+    mengembalikan simbol seperti 'ʽ˔˞˔˥˧˔' alih-alih huruf. Teks semacam itu
+    lolos pemeriksaan "tidak kosong" tetapi tidak bermakna bagi embedding
+    maupun bagi model — halaman itu perlu di-OCR seperti halaman pindaian.
+    """
+    bersih = [c for c in teks if not c.isspace()]
+    if len(bersih) < 20:
+        return False
+    wajar = sum(1 for c in bersih if c.isascii() and (c.isalnum() or c in _KARAKTER_WAJAR))
+    return (wajar / len(bersih)) < ambang
+
+
 def _ocr_halaman_pdf(file_path: str, halaman_kosong: set[int]) -> dict[int, str]:
     """
     Render halaman PDF yang tidak punya teks, lalu baca dengan OCR.
@@ -72,7 +93,11 @@ def _load_raw_text(file_path: str) -> str:
 
         # Halaman tanpa teks berarti hasil pindai; hanya halaman itu yang di-OCR,
         # sehingga PDF campuran (sebagian teks, sebagian pindaian) tetap utuh.
-        kosong = {i for i, teks in enumerate(isi) if not teks.strip()}
+        # Halaman yang teksnya kacau (font subset tanpa peta Unicode) juga perlu
+        # di-OCR: isinya ada, tetapi tidak terbaca oleh embedding maupun model.
+        kosong = {
+            i for i, teks in enumerate(isi) if not teks.strip() or _teks_kacau(teks)
+        }
         if kosong and settings.OCR_PDF_FALLBACK:
             for nomor, teks in _ocr_halaman_pdf(file_path, kosong).items():
                 if nomor < len(isi):

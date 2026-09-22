@@ -354,7 +354,7 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Embedding bge-m3 (recall@3 pada korpus uji: 71% -> 100%).
 - [x] Pengelolaan knowledge base lewat UI (lihat, tulis, sunting, hapus, indeks ulang).
 - [x] PDF hasil pindai dibaca lewat OCR per-halaman.
-- [x] Test otomatis: 171 test pytest.
+- [x] Test otomatis: 180 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
 
@@ -409,6 +409,31 @@ di daftar sumber, tetapi jawabannya "tidak ditemukan".
 Untuk mode terbatas, `RAG_DOC_TOP_K` (bawaan 12) dipakai menggantikan
 `RAG_TOP_K`, agar dokumen pendek terbaca utuh dan bisa diringkas.
 
+### Riwayat tidak dikirim saat ada lampiran
+
+Dua PDF berbeda sempat menghasilkan jawaban yang **identik** — dan isinya milik
+dokumen ketiga yang dibahas beberapa giliran sebelumnya. Penyebabnya bukan
+retrieval: sumber yang ditampilkan sudah benar, tetapi model menyalin jawaban
+lama dari riwayat percakapan.
+
+Ketika user melampirkan berkas, pertanyaannya tentang berkas itu. Riwayat tidak
+menambah apa pun di situ dan terbukti berbahaya, jadi memori percakapan
+**tidak dikirim** pada giliran yang mengandung lampiran.
+
+Terkait itu, tombol "Obrolan Baru" dulu hanya mengosongkan layar sementara
+`session_id` tetap sama selamanya, sehingga backend terus memuat riwayat yang
+sama. Sesi kini benar-benar berganti dan tersimpan di `localStorage`.
+
+### PDF dengan font tanpa peta Unicode
+
+Sebagian PDF memakai font subset tanpa peta ToUnicode. Ekstraksi teksnya
+menghasilkan simbol seperti `ʽ˔˞˔˥˧˔` — lolos pemeriksaan "tidak kosong",
+tetapi tidak bermakna bagi embedding maupun model. Halaman semacam itu kini
+dideteksi (`_teks_kacau`) dan ikut di-OCR seperti halaman pindaian.
+
+Catatan kinerja: OCR seluruh halaman PDF bisa memakan lebih dari dua menit pada
+pemanggilan pertama karena model PaddleOCR dimuat lebih dulu.
+
 ### Riwayat bukan sumber fakta
 
 Pada sesi berriwayat panjang, model terbukti **menyalin angka dari jawabannya
@@ -455,7 +480,7 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 .venv/bin/python -m pytest
 ```
 
-171 test, selesai ~29 detik. Poin penting desainnya:
+180 test, selesai ~30 detik. Poin penting desainnya:
 
 - **Database terpisah** (`agentic_rag_test`). `conftest.py` menolak jalan jika
   `DATABASE_URL` tidak mengandung kata `test`, dan mengosongkan tabel sebelum tiap test.

@@ -143,3 +143,46 @@ def test_tanpa_lampiran_tidak_membatasi_pencarian(client, header_user, monkeypat
 
     client.post("/chat/stream", json={"session_id": "s", "message": "halo"}, headers=header_user)
     assert terekam["nama"] is None
+
+
+def test_riwayat_tidak_dikirim_saat_ada_lampiran(client, header_user, monkeypatch):
+    """
+    Regresi: dua PDF berbeda menghasilkan jawaban identik karena model menyalin
+    jawaban lama dari riwayat. Saat user melampirkan berkas, pertanyaannya
+    tentang berkas itu — riwayat tidak menambah apa pun dan terbukti berbahaya.
+    """
+    import main
+
+    client.post("/chat/stream", json={"session_id": "s", "message": "pertama"}, headers=header_user)
+
+    terekam = {}
+
+    async def rekam(message, image_path=None, chat_history=None, document_filename=None):
+        terekam["history"] = chat_history
+        yield {"type": "done", "answer": "ok", "tool_used": "rag_search", "sources": []}
+
+    monkeypatch.setattr(main, "run_agent_stream", rekam)
+
+    client.post(
+        "/chat/stream",
+        json={"session_id": "s", "message": "apa isinya?", "document_filename": "a.pdf"},
+        headers=header_user,
+    )
+    assert terekam["history"] == []
+
+
+def test_riwayat_tetap_dikirim_tanpa_lampiran(client, header_user, monkeypatch):
+    import main
+
+    client.post("/chat/stream", json={"session_id": "s", "message": "pertama"}, headers=header_user)
+
+    terekam = {}
+
+    async def rekam(message, image_path=None, chat_history=None, document_filename=None):
+        terekam["history"] = chat_history
+        yield {"type": "done", "answer": "ok", "tool_used": "llm_direct", "sources": []}
+
+    monkeypatch.setattr(main, "run_agent_stream", rekam)
+
+    client.post("/chat/stream", json={"session_id": "s", "message": "lalu?"}, headers=header_user)
+    assert terekam["history"], "tanpa lampiran, memori percakapan tetap dipakai"

@@ -240,7 +240,16 @@ async def chat_stream(
         raise HTTPException(status_code=400, detail="Message tidak boleh kosong.")
 
     image_path = _resolve_image_path(request.image_id) if request.image_id else None
-    history = await run_in_threadpool(_load_history, db, request.session_id, user.id)
+
+    # Saat user melampirkan berkas, pertanyaannya tentang berkas itu. Riwayat
+    # percakapan tidak menambah apa pun di situ, tetapi terbukti berbahaya:
+    # model dapat menyalin jawaban lama tentang dokumen lain.
+    ada_lampiran = bool(image_path or request.document_filename)
+    history = (
+        []
+        if ada_lampiran
+        else await run_in_threadpool(_load_history, db, request.session_id, user.id)
+    )
     await run_in_threadpool(
         _simpan_pesan, request.session_id, user.id, "user", request.message
     )

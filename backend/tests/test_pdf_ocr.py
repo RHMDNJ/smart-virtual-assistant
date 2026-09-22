@@ -6,6 +6,7 @@ semacam itu ditolak dengan pesan "tidak memiliki konten teks", padahal isinya
 terbaca jelas oleh mata. Dokumen pemerintah kerap berbentuk demikian.
 """
 
+import pytest
 from PIL import Image, ImageDraw
 
 from services.document_service import _load_raw_text
@@ -121,3 +122,46 @@ def test_satu_halaman_gagal_ocr_tidak_membuang_sisanya(tmp_path, monkeypatch):
     assert "TEKS HALAMAN 2" in hasil
     assert "TEKS HALAMAN 3" in hasil
     assert len(urutan) == 3, "seluruh halaman tetap dicoba"
+
+
+# --- teks kacau (font tanpa peta Unicode) -----------------------------------
+
+from services.document_service import _teks_kacau  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "teks,kacau",
+    [
+        ("BAHAN RAPAT DISKOMINFO Pembahasan Ranperda Perubahan Kedua atas Perda", False),
+        ("Pasal 1 - Cuti tahunan 14 hari kerja per tahun bagi pegawai tetap.", False),
+        ("Jalan Kalimantan No. 12, Kandangan — telp (0517) 21234, 70614", False),
+        ("ʽ˔˞˔˥˧˔\x03ˆˠ˔˥˧\x03ʶ˜˧ˬ\x03˯\x03ʥʣʥʩ\x03·ëŜƠëŜĮëŜȥfŦŎëőȰȥ«ŦőƨƔĺȥ", True),
+        ("EŦƿĕƌŜŚĕŜƠȥƔĕĆëĮëĺȥëƔëőȥĮëĮëƔëŜȥƠĕƌĆĕŜƠƨŎ$ĺƔƌƨƉƔĺ", True),
+        ("abc", False),  # terlalu pendek untuk dinilai
+    ],
+)
+def test_deteksi_teks_kacau(teks, kacau):
+    """
+    Sebagian PDF memakai font subset tanpa peta ToUnicode, sehingga ekstraksi
+    menghasilkan simbol alih-alih huruf. Teks itu lolos pemeriksaan "tidak
+    kosong" tetapi tidak bermakna — halamannya harus ikut di-OCR.
+    """
+    assert _teks_kacau(teks) is kacau
+
+
+def test_halaman_berteks_kacau_ikut_di_ocr(tmp_path, monkeypatch):
+    """Regresi: halaman dengan teks kacau sebelumnya lolos dan tersimpan apa adanya."""
+    import pymupdf
+
+    berkas = pymupdf.open()
+    hal = berkas.new_page()
+    # Simulasi hasil ekstraksi yang rusak — disisipkan sebagai teks sungguhan.
+    hal.insert_text((72, 100), "EŦƿĕƌŜŚĕŜƠȥƔĕĆëĮëĺȥëƔëőȥĮëĮëƔëŜȥƠĕƌĆĕŜƠƨŎ$ĺƔƌƨƉƔĺ")
+    path = tmp_path / "kacau.pdf"
+    berkas.save(str(path))
+    berkas.close()
+
+    monkeypatch.setattr("tools.ocr_tool.extract_text_from_image", lambda p: "TEKS HASIL OCR")
+
+    hasil = _load_raw_text(str(path))
+    assert "TEKS HASIL OCR" in hasil
