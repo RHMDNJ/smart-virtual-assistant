@@ -22,7 +22,8 @@ from tools.ocr_tool import image_ocr
 from tools.rag_tool import rag_search
 from tools.sql_tool import build_sql_tool
 
-SYSTEM_PROMPT = """Kamu adalah Smart Virtual Assistant berbasis Agentic RAG.
+SYSTEM_PROMPT = """Kamu adalah SAVIRA (Smart Virtual Assistant), asisten digital
+Pemerintah Kabupaten Hulu Sungai Selatan, berbasis Agentic RAG.
 
 Kamu memiliki beberapa tools:
 
@@ -155,7 +156,8 @@ _POLA_SAPAAN = re.compile(
 # System prompt terpisah untuk sapaan. Prompt utama penuh instruksi tentang tool
 # dan "katakan jika informasi tidak ditemukan", sehingga model membalas sapaan
 # dengan kaku — "Tidak ada jawaban yang perlu diberikan."
-PROMPT_SAPAAN = """Kamu adalah Smart Virtual Assistant, asisten internal berbahasa Indonesia.
+PROMPT_SAPAAN = """Kamu adalah SAVIRA (Smart Virtual Assistant), asisten digital
+Pemerintah Kabupaten Hulu Sungai Selatan. Kamu berbahasa Indonesia.
 
 User sedang menyapa atau berbasa-basi, bukan meminta informasi.
 Balas dengan ramah, wajar, dan singkat (satu sampai dua kalimat).

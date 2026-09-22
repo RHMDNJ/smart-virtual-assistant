@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # App
     APP_ENV: str = "development"
-    APP_NAME: str = "Smart Virtual Assistant"
+    APP_NAME: str = "SAVIRA — Smart Virtual Assistant"
 
     # Database
     DATABASE_URL: str = "postgresql://postgres:mysecretpassword@localhost:5432/agentic_rag"

@@ -134,10 +134,10 @@ export default function ChatBox({ user, onLogout }) {
           />
           <div className="min-w-0">
             <h1 className="truncate text-sm font-bold tracking-tight">
-              <span className="text-navy dark:text-ink">HELP</span>
-              <span className="text-brand">DESK</span>
+              <span className="text-navy dark:text-ink">SA</span>
+              <span className="text-brand">VIRA</span>
               <span className="ml-1.5 font-normal text-muted">
-                · Pusat Bantuan Layanan Digital
+                · Smart Virtual Assistant
               </span>
             </h1>
             <p className="flex items-center gap-1.5 text-[11px] text-muted">

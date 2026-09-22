@@ -60,12 +60,12 @@ export default function LoginForm({ onLoggedIn }) {
             height={96}
             className="mb-4 h-24 w-24 select-none object-contain drop-shadow-md"
           />
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            <span className="text-navy dark:text-ink">HELP</span>
-            <span className="text-brand">DESK</span>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            <span className="text-navy dark:text-ink">SA</span>
+            <span className="text-brand">VIRA</span>
           </h1>
           <p className="mt-0.5 text-[13px] font-semibold text-navy/80 dark:text-ink/70">
-            Pusat Bantuan Layanan Digital
+            Smart Virtual Assistant
           </p>
           <p className="text-[11px] text-muted">
             Pemerintah Kabupaten Hulu Sungai Selatan

@@ -1,9 +1,9 @@
-# Helpdesk — Pusat Bantuan Layanan Digital
+# SAVIRA — Smart Virtual Assistant
 
 <img src="frontend/public/brand/maskot-256.png" alt="" width="96" align="right" />
 
-Asisten digital **Pemerintah Kabupaten Hulu Sungai Selatan**, berjalan sepenuhnya
-di infrastruktur lokal.
+**SAVIRA** (Smart Virtual Assistant) adalah asisten digital **Pemerintah Kabupaten
+Hulu Sungai Selatan**, berjalan sepenuhnya di infrastruktur lokal.
 
 Implementasi **Agentic RAG** lokal: FastAPI + LangChain + PostgreSQL/pgvector + PaddleOCR + Ollama + ViteJS/React.
 
@@ -20,9 +20,10 @@ Aset brand ada di `frontend/public/brand/`:
 | `banner-terang.webp` / `banner-gelap.webp` | latar layar login (mengikuti tema sistem) |
 | `banner-maskot.webp` | cadangan, belum dipakai |
 
-Palet diambil langsung dari logo: navy `#001848`, biru `#0060d8`, cyan `#00d8f0`.
+Palet diambil langsung dari logo Helpdesk HSS: navy `#001848`, biru `#0060d8`,
+cyan `#00d8f0`.
 
-Wordmark "HELPDESK" ditulis sebagai teks, bukan gambar. Logo raster harus
+Wordmark "SAVIRA" ditulis sebagai teks, bukan gambar. Logo raster harus
 di-invert agar terbaca di mode gelap, dan filter itu mengubah maskot menjadi
 siluet putih tanpa wajah — teks tetap tajam di ukuran apa pun dan mengikuti tema.
 

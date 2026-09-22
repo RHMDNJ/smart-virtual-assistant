@@ -1,7 +1,7 @@
 {
-  "name": "Helpdesk — Pusat Bantuan Layanan Digital",
-  "short_name": "Helpdesk HSS",
-  "description": "Asisten digital Pemerintah Kabupaten Hulu Sungai Selatan.",
+  "name": "SAVIRA — Smart Virtual Assistant",
+  "short_name": "SAVIRA",
+  "description": "Smart Virtual Assistant Pemerintah Kabupaten Hulu Sungai Selatan.",
   "lang": "id",
   "start_url": "/",
   "display": "standalone",
