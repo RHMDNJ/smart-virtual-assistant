@@ -245,6 +245,21 @@ Kenapa bukan fine-tuning: melatih ulang bobot model perlu ratusan hingga ribuan
 contoh, komputasi berjam-jam, dan hasilnya sering kalah dibanding RAG yang
 datanya rapi. Mengganti dokumen berdampak seketika dan bisa ditarik kembali.
 
+### PDF hasil pindai
+
+PDF pindaian hanyalah gambar yang dibungkus PDF — tidak punya lapisan teks,
+sehingga sebelumnya ditolak dengan pesan "tidak memiliki konten teks", padahal
+isinya terbaca jelas oleh mata. Dokumen pemerintah kerap berbentuk demikian.
+
+Kini halaman yang tidak memuat teks di-render lewat PyMuPDF lalu dibaca
+PaddleOCR. Hanya halaman kosong yang di-OCR, jadi PDF campuran (sebagian teks,
+sebagian pindaian) tetap utuh dan tidak membayar ongkos OCR dua kali.
+
+Satu halaman yang gagal di-OCR dicatat sebagai peringatan dan dilewati, bukan
+membatalkan seluruh dokumen. Pengaturan di `.env`: `OCR_PDF_FALLBACK`,
+`OCR_PDF_MAX_PAGES` (bawaan 20, agar dokumen tebal tidak menggantung request),
+dan `OCR_PDF_DPI`.
+
 ## Retrieval — Hybrid Search
 
 `rag_search` menggabungkan dua pencarian lalu menyatukan peringkatnya dengan
@@ -338,7 +353,8 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Hybrid search (vector + full-text Indonesia) dengan Reciprocal Rank Fusion.
 - [x] Embedding bge-m3 (recall@3 pada korpus uji: 71% -> 100%).
 - [x] Pengelolaan knowledge base lewat UI (lihat, tulis, sunting, hapus, indeks ulang).
-- [x] Test otomatis: 151 test pytest.
+- [x] PDF hasil pindai dibaca lewat OCR per-halaman.
+- [x] Test otomatis: 157 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
 
@@ -403,7 +419,7 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 .venv/bin/python -m pytest
 ```
 
-151 test, selesai ~27 detik. Poin penting desainnya:
+157 test, selesai ~28 detik. Poin penting desainnya:
 
 - **Database terpisah** (`agentic_rag_test`). `conftest.py` menolak jalan jika
   `DATABASE_URL` tidak mengandung kata `test`, dan mengosongkan tabel sebelum tiap test.

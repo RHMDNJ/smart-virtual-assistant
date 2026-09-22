@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # OCR
     OCR_LANG: str = "id"  # PaddleOCR: "id" (Indonesia), "en", dll.
     OCR_USE_ANGLE_CLS: bool = False  # klasifikasi orientasi baris; aktifkan jika gambar miring/terbalik
+    # PDF hasil pindai tidak punya lapisan teks, jadi halamannya di-render lalu di-OCR.
+    OCR_PDF_FALLBACK: bool = True
+    OCR_PDF_MAX_PAGES: int = 20      # batas agar dokumen tebal tidak menggantung request
+    OCR_PDF_DPI: int = 200           # cukup untuk teks cetak, tanpa membengkakkan memori
 
     # CORS
     # localhost dan 127.0.0.1 adalah origin berbeda bagi browser — sertakan keduanya

@@ -4,6 +4,7 @@ Pipeline RAG untuk indexing dokumen (Bagian 9 di README):
 Document -> Loader -> Cleaning -> Chunking -> Embedding -> pgvector
 """
 
+import logging
 import os
 
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
@@ -11,6 +12,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from config import settings
 from models import Document
 from services.embedding_service import embed_documents
 
@@ -20,6 +22,45 @@ _splitter = RecursiveCharacterTextSplitter(
 )
 
 
+def _ocr_halaman_pdf(file_path: str, halaman_kosong: set[int]) -> dict[int, str]:
+    """
+    Render halaman PDF yang tidak punya teks, lalu baca dengan OCR.
+
+    PDF hasil pindai hanyalah gambar yang dibungkus PDF — tanpa langkah ini
+    dokumen semacam itu ditolak dengan pesan "tidak memiliki konten teks",
+    padahal isinya terbaca jelas oleh mata.
+    """
+    import pymupdf
+
+    from tools.ocr_tool import extract_text_from_image
+
+    hasil: dict[int, str] = {}
+    zoom = settings.OCR_PDF_DPI / 72  # PDF memakai 72 dpi sebagai basis
+    berkas = pymupdf.open(file_path)
+    try:
+        for nomor in sorted(halaman_kosong)[: settings.OCR_PDF_MAX_PAGES]:
+            gambar = berkas[nomor].get_pixmap(matrix=pymupdf.Matrix(zoom, zoom))
+            sementara = f"{file_path}.hal{nomor}.png"
+            gambar.save(sementara)
+            try:
+                teks = extract_text_from_image(sementara)
+                if teks.strip():
+                    hasil[nomor] = teks
+            except Exception:  # noqa: BLE001
+                # Satu halaman bermasalah tidak boleh membuang halaman lain
+                # pada dokumen pindaian yang tebal.
+                logging.getLogger(__name__).warning(
+                    "OCR gagal pada halaman %s dari %s; halaman dilewati.", nomor + 1, file_path,
+                    exc_info=True,
+                )
+            finally:
+                if os.path.exists(sementara):
+                    os.remove(sementara)
+    finally:
+        berkas.close()
+    return hasil
+
+
 def _load_raw_text(file_path: str) -> str:
     """Load teks mentah dari file PDF/TXT. Untuk gambar, gunakan ocr_tool terlebih dahulu."""
     ext = os.path.splitext(file_path)[1].lower()
@@ -27,7 +68,17 @@ def _load_raw_text(file_path: str) -> str:
     if ext == ".pdf":
         loader = PyPDFLoader(file_path)
         pages = loader.load()
-        return "\n\n".join(p.page_content for p in pages)
+        isi = [p.page_content for p in pages]
+
+        # Halaman tanpa teks berarti hasil pindai; hanya halaman itu yang di-OCR,
+        # sehingga PDF campuran (sebagian teks, sebagian pindaian) tetap utuh.
+        kosong = {i for i, teks in enumerate(isi) if not teks.strip()}
+        if kosong and settings.OCR_PDF_FALLBACK:
+            for nomor, teks in _ocr_halaman_pdf(file_path, kosong).items():
+                if nomor < len(isi):
+                    isi[nomor] = teks
+
+        return "\n\n".join(t for t in isi if t.strip())
 
     if ext in (".txt", ".md"):
         loader = TextLoader(file_path, encoding="utf-8")
