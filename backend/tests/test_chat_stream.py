@@ -87,7 +87,7 @@ def test_kegagalan_di_tengah_stream_jadi_event_error(client, header_user, monkey
     """Header sudah terkirim, jadi error tidak bisa lagi jadi HTTP 500."""
     import main
 
-    async def gagal(message, image_path=None, chat_history=None):
+    async def gagal(message, image_path=None, chat_history=None, document_filename=None):
         yield {"type": "token", "text": "mulai"}
         raise RuntimeError("ollama mati")
 
@@ -104,3 +104,42 @@ def test_kegagalan_di_tengah_stream_jadi_event_error(client, header_user, monkey
 def test_readonly_boleh_streaming(client, header_pembaca):
     res = client.post("/chat/stream", json={"session_id": "s", "message": "hai"}, headers=header_pembaca)
     assert res.status_code == 200
+
+
+def test_document_filename_diteruskan_ke_agent(client, header_user, monkeypatch):
+    """
+    Saat berkas baru diunggah, nama dokumennya harus sampai ke agent agar
+    pencarian dibatasi pada berkas itu — tanpa itu, pertanyaan umum seperti
+    "apa isi dokumennya?" menarik potongan dokumen lain yang menenggelamkannya.
+    """
+    import main
+
+    terekam = {}
+
+    async def rekam(message, image_path=None, chat_history=None, document_filename=None):
+        terekam["nama"] = document_filename
+        yield {"type": "done", "answer": "ok", "tool_used": "rag_search", "sources": []}
+
+    monkeypatch.setattr(main, "run_agent_stream", rekam)
+
+    client.post(
+        "/chat/stream",
+        json={"session_id": "s", "message": "apa isi dokumennya?", "document_filename": "laporan.pdf"},
+        headers=header_user,
+    )
+    assert terekam["nama"] == "laporan.pdf"
+
+
+def test_tanpa_lampiran_tidak_membatasi_pencarian(client, header_user, monkeypatch):
+    import main
+
+    terekam = {}
+
+    async def rekam(message, image_path=None, chat_history=None, document_filename=None):
+        terekam["nama"] = document_filename
+        yield {"type": "done", "answer": "ok", "tool_used": "rag_search", "sources": []}
+
+    monkeypatch.setattr(main, "run_agent_stream", rekam)
+
+    client.post("/chat/stream", json={"session_id": "s", "message": "halo"}, headers=header_user)
+    assert terekam["nama"] is None

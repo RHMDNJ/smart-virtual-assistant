@@ -58,6 +58,17 @@ ORDER BY (COALESCE(1.0 / (:rrf + v.peringkat), 0) + COALESCE(1.0 / (:rrf + t.per
 LIMIT :top_k
 """
 
+# Pencarian yang dibatasi pada satu dokumen. Dipakai ketika user baru saja
+# mengunggah berkas dan bertanya tentang isinya: tanpa pembatasan ini,
+# potongan dari dokumen lain ikut terambil dan menenggelamkan yang ditanyakan.
+_SQL_DALAM_DOKUMEN = """
+SELECT filename, content, 1 AS skor_vektor, 0 AS skor_teks
+FROM documents
+WHERE filename = :filename AND embedding IS NOT NULL
+ORDER BY embedding <=> CAST(:vec AS vector)
+LIMIT :top_k
+"""
+
 _SQL_VEKTOR_SAJA = """
 SELECT filename, content, 1 AS skor_vektor, 0 AS skor_teks
 FROM documents
@@ -72,12 +83,23 @@ def _vector_literal(vektor: list[float]) -> str:
     return "[" + ",".join(str(x) for x in vektor) + "]"
 
 
-def cari_dokumen(db: Session, kueri: str, top_k: int | None = None) -> list[dict]:
-    """Kembalikan potongan dokumen paling relevan beserta asal skornya."""
+def cari_dokumen(
+    db: Session, kueri: str, top_k: int | None = None, filename: str | None = None
+) -> list[dict]:
+    """
+    Kembalikan potongan dokumen paling relevan beserta asal skornya.
+
+    Bila `filename` diisi, pencarian dibatasi pada dokumen itu saja.
+    """
     top_k = top_k or settings.RAG_TOP_K
     vec = _vector_literal(embed_text(kueri))
 
-    if settings.RAG_HYBRID:
+    if filename:
+        baris = db.execute(
+            sql_text(_SQL_DALAM_DOKUMEN),
+            {"vec": vec, "filename": filename, "top_k": top_k},
+        ).all()
+    elif settings.RAG_HYBRID:
         baris = db.execute(
             sql_text(_SQL_HYBRID),
             {
@@ -132,3 +154,37 @@ def rag_search(query: str) -> str:
         )
     finally:
         db.close()
+
+
+def build_rag_tool(filename: str | None = None):
+    """
+    Buat tool rag_search. Bila `filename` diisi, pencarian dibatasi pada dokumen
+    tersebut — dipakai saat user mengunggah berkas lalu bertanya tentang isinya.
+    """
+    from langchain_core.tools import StructuredTool
+
+    if not filename:
+        return rag_search
+
+    def cari_terbatas(query: str) -> str:
+        db = SessionLocal()
+        try:
+            # Pertanyaan bisa sangat umum ("apa isi dokumennya?"), sehingga
+            # kemiripan vektor kurang berarti. Ambil lebih banyak potongan agar
+            # dokumen pendek terbaca utuh.
+            hasil = cari_dokumen(db, query or filename, top_k=settings.RAG_DOC_TOP_K, filename=filename)
+            if not hasil:
+                return f"Dokumen '{filename}' tidak memuat teks yang dapat dibaca."
+            return "\n\n---\n\n".join(f"[Sumber: {h['filename']}]\n{h['content']}" for h in hasil)
+        finally:
+            db.close()
+
+    return StructuredTool.from_function(
+        func=cari_terbatas,
+        name="rag_search",
+        description=(
+            f"Baca isi dokumen '{filename}' yang BARU SAJA diunggah user. "
+            "Gunakan tool ini untuk pertanyaan apa pun tentang berkas tersebut, "
+            "termasuk permintaan ringkasan seperti 'apa isi dokumennya'."
+        ),
+    )

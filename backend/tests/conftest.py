@@ -74,7 +74,7 @@ def matikan_llm_dan_embedding(monkeypatch):
             "sources": [],
         }
 
-    async def fake_run_agent_stream(message, image_path=None, chat_history=None):
+    async def fake_run_agent_stream(message, image_path=None, chat_history=None, document_filename=None):
         yield {"type": "tool", "name": "rag_search"}
         for potongan in ("Ini ", "jawaban ", "bertahap."):
             yield {"type": "token", "text": potongan}

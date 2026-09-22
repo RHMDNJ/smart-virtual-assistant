@@ -249,7 +249,10 @@ async def chat_stream(
         jawaban = ""
         try:
             async for event in run_agent_stream(
-                request.message, image_path=image_path, chat_history=history
+                request.message,
+                image_path=image_path,
+                chat_history=history,
+                document_filename=request.document_filename,
             ):
                 if event["type"] == "done":
                     jawaban = event["answer"]

@@ -41,7 +41,7 @@ def test_riwayat_terisolasi_pada_memori_agent(client, header_user, admin, monkey
 
     terekam = {}
 
-    def rekam(message, image_path=None, chat_history=None):
+    def rekam(message, image_path=None, chat_history=None, document_filename=None):
         terekam["history"] = chat_history or []
         return {"answer": "ok", "tool_used": "llm_direct", "sources": []}
 
@@ -59,7 +59,7 @@ def test_memori_percakapan_dikirim_ke_agent(client, header_user, monkeypatch):
 
     terekam = {}
 
-    def rekam(message, image_path=None, chat_history=None):
+    def rekam(message, image_path=None, chat_history=None, document_filename=None):
         terekam["history"] = chat_history or []
         return {"answer": "ok", "tool_used": "llm_direct", "sources": []}
 

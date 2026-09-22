@@ -19,7 +19,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from services.llm_service import get_llm
 from tools.ocr_tool import image_ocr
-from tools.rag_tool import rag_search
+from tools.rag_tool import build_rag_tool, rag_search
 from tools.sql_tool import build_sql_tool
 
 SYSTEM_PROMPT = """Kamu adalah SAVIRA (Smart Virtual Assistant), asisten digital
@@ -249,6 +249,7 @@ async def run_agent_stream(
     user_message: str,
     image_path: str | None = None,
     chat_history: list[tuple[str, str]] | None = None,
+    document_filename: str | None = None,
 ):
     """
     Versi streaming dari run_agent, dalam dua fase.
@@ -269,7 +270,13 @@ async def run_agent_stream(
       {"type": "done",  "answer": ..., "tool_used": ..., "sources": [...]}
     """
     llm = get_llm()
-    tools = get_tools()
+    # Bila user baru saja mengunggah dokumen, pencarian dibatasi pada berkas itu.
+    # Tanpa pembatasan ini, pertanyaan umum seperti "apa isi dokumennya?" ikut
+    # menarik potongan dokumen lain yang menenggelamkan berkas yang ditanyakan.
+    if document_filename:
+        tools = [build_rag_tool(document_filename), image_ocr, build_sql_tool()]
+    else:
+        tools = get_tools()
     peta_tool = {t.name: t for t in tools}
 
     pesan: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
@@ -278,6 +285,8 @@ async def run_agent_stream(
     masukan = user_message
     if image_path:
         masukan = f"{user_message}\n\n(File gambar terlampir di path: {image_path})"
+    elif document_filename:
+        masukan = f"{user_message}\n\n(Dokumen terlampir: {document_filename})"
     pesan.append(HumanMessage(content=masukan))
 
     if sapaan_saja(user_message) and not image_path:
@@ -355,8 +364,10 @@ async def run_agent_stream(
         pesan[-1].content += (
             "\n\n[Catatan sistem] Susun jawaban HANYA dari hasil tool di atas. "
             "Abaikan angka, tanggal, dan ketentuan yang muncul pada riwayat percakapan. "
-            "Bila hasil tool tidak memuat informasi yang ditanyakan, katakan bahwa "
-            "informasi tersebut tidak ditemukan — jangan menebak."
+            "Bila user meminta ringkasan atau menanyakan isi dokumen secara umum, "
+            "rangkum isi hasil tool di atas — jangan menjawab tidak ditemukan selama "
+            "hasil tool memuat teks. Katakan tidak ditemukan hanya bila hasil tool "
+            "benar-benar tidak memuat fakta yang ditanyakan."
         )
 
     # Fase 2 — sintesis jawaban, tanpa tools sehingga streaming aktif.

@@ -91,9 +91,17 @@ function tanganiTidakBerwenang() {
  * sebagai stream. EventSource juga tidak dipakai karena hanya mendukung GET
  * tanpa header Authorization.
  */
-export async function streamChatMessage(sessionId, message, imageId, handler = {}) {
+export async function streamChatMessage(
+  sessionId,
+  message,
+  imageId,
+  handler = {},
+  documentFilename = null
+) {
   const payload = { session_id: sessionId, message };
   if (imageId) payload.image_id = imageId;
+  // Dokumen yang baru diunggah: pencarian dibatasi pada berkas itu saja.
+  if (documentFilename) payload.document_filename = documentFilename;
 
   let res;
   try {

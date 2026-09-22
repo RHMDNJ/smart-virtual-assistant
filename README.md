@@ -354,7 +354,7 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Embedding bge-m3 (recall@3 pada korpus uji: 71% -> 100%).
 - [x] Pengelolaan knowledge base lewat UI (lihat, tulis, sunting, hapus, indeks ulang).
 - [x] PDF hasil pindai dibaca lewat OCR per-halaman.
-- [x] Test otomatis: 165 test pytest.
+- [x] Test otomatis: 171 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
 
@@ -395,6 +395,19 @@ lalu meracuni pemilihan tool pada pertanyaan berikutnya — inilah penyebab
 kegagalan RAG-001 dan SQL-001 yang hanya muncul di browser (sesi panjang),
 tidak pernah pada uji API bersesi baru. `_tool_call_dari_teks` memulihkannya
 menjadi panggilan tool yang sebenarnya.
+
+### Bertanya tentang berkas yang baru diunggah
+
+Ketika user mengunggah dokumen lalu bertanya "apa isi dokumennya?", pencarian
+**dibatasi pada berkas itu saja** (`document_filename` pada `POST /chat/stream`).
+
+Tanpa pembatasan ini, pertanyaan yang sangat umum seperti itu punya kemiripan
+vektor yang lemah terhadap dokumen mana pun, sehingga potongan dari dokumen lain
+ikut terambil dan menenggelamkan berkas yang baru diunggah — dokumennya muncul
+di daftar sumber, tetapi jawabannya "tidak ditemukan".
+
+Untuk mode terbatas, `RAG_DOC_TOP_K` (bawaan 12) dipakai menggantikan
+`RAG_TOP_K`, agar dokumen pendek terbaca utuh dan bisa diringkas.
 
 ### Riwayat bukan sumber fakta
 
@@ -442,7 +455,7 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 .venv/bin/python -m pytest
 ```
 
-165 test, selesai ~29 detik. Poin penting desainnya:
+171 test, selesai ~29 detik. Poin penting desainnya:
 
 - **Database terpisah** (`agentic_rag_test`). `conftest.py` menolak jalan jika
   `DATABASE_URL` tidak mengandung kata `test`, dan mengosongkan tabel sebelum tiap test.

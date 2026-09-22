@@ -176,12 +176,14 @@ export default function ChatBox({ user, onLogout }) {
 
     // --- unggah lebih dulu bila ada lampiran ---
     let imageId = null;
+    let dokumenBaru = null;
     if (berkas) {
       setFase("mengunggah");
       try {
         const hasil = await uploadFile(berkas);
         imageId = hasil.image_id || null;
         if (!imageId) {
+          dokumenBaru = hasil.filename;
           // Dokumen: beri tahu hasil indexing sebelum menjawab.
           setMessages((prev) => [
             ...prev,
@@ -213,24 +215,30 @@ export default function ChatBox({ user, onLogout }) {
 
     try {
       let terkumpul = "";
-      await streamChatMessage(SESSION_ID, pesanDikirim, imageId, {
-        onTool: (name) => perbaruiTerakhir({ toolUsed: name }),
-        onToken: (potongan) => {
-          terkumpul += potongan;
-          perbaruiTerakhir({ message: terkumpul });
+      await streamChatMessage(
+        SESSION_ID,
+        pesanDikirim,
+        imageId,
+        {
+          onTool: (name) => perbaruiTerakhir({ toolUsed: name }),
+          onToken: (potongan) => {
+            terkumpul += potongan;
+            perbaruiTerakhir({ message: terkumpul });
+          },
+          onDone: (ev) =>
+            perbaruiTerakhir({
+              message: ev.answer || terkumpul,
+              sources: ev.sources,
+              toolUsed: ev.tool_used,
+              streaming: false,
+            }),
+          onError: (detail) => {
+            perbaruiTerakhir({ streaming: false });
+            setError(detail || "Terjadi kesalahan saat memproses jawaban.");
+          },
         },
-        onDone: (ev) =>
-          perbaruiTerakhir({
-            message: ev.answer || terkumpul,
-            sources: ev.sources,
-            toolUsed: ev.tool_used,
-            streaming: false,
-          }),
-        onError: (detail) => {
-          perbaruiTerakhir({ streaming: false });
-          setError(detail || "Terjadi kesalahan saat memproses jawaban.");
-        },
-      });
+        dokumenBaru
+      );
     } catch (err) {
       setMessages((prev) => prev.slice(0, -1));
       setError(err?.message || "Gagal menghubungi server. Pastikan backend berjalan.");

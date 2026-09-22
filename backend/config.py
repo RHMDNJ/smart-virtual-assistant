@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     # RAG / retrieval
     RAG_TOP_K: int = 4               # jumlah chunk yang diberikan ke LLM
+    RAG_DOC_TOP_K: int = 12          # potongan yang diambil saat membaca satu dokumen tertentu
     RAG_CANDIDATE_K: int = 20        # kandidat yang diambil tiap retriever sebelum digabung
     RAG_HYBRID: bool = True          # gabungkan vector search dengan full-text search
     RAG_RRF_K: int = 60              # konstanta Reciprocal Rank Fusion

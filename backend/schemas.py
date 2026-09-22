@@ -15,6 +15,9 @@ class ChatRequest(BaseModel):
     # ID gambar hasil POST /upload (bukan path absolut, agar tidak bisa dipakai
     # untuk membaca file sembarangan di server).
     image_id: Optional[str] = None
+    # Nama dokumen yang baru diunggah pada giliran ini. Bila diisi, pencarian
+    # dibatasi pada dokumen itu.
+    document_filename: Optional[str] = None
 
 
 class SourceItem(BaseModel):
