@@ -4,6 +4,7 @@ Agent Orchestrator (Bagian 3.1 & 14) — LLM memilih tool (RAG / OCR / SQL) sesu
 kebutuhan pertanyaan user, lalu menyusun jawaban akhir menggunakan Local LLM (Ollama).
 """
 
+import json
 import re
 
 from langchain.agents import AgentExecutor, create_tool_calling_agent
@@ -186,6 +187,36 @@ def get_tools() -> list:
     return _tools_cache
 
 
+def _tool_call_dari_teks(konten, nama_tool: set[str]) -> list[dict] | None:
+    """
+    Pulihkan tool call yang keluar sebagai teks biasa.
+
+    llama3.1 kadang tidak mengisi `tool_calls` dan malah menuliskan panggilan
+    sebagai JSON di dalam konten. Tanpa penanganan ini, JSON mentah ikut
+    ditampilkan sebagai jawaban DAN tersimpan ke riwayat, lalu meracuni
+    pemilihan tool pada pertanyaan berikutnya.
+    """
+    if not isinstance(konten, str):
+        return None
+    teks = konten.strip()
+    if not (teks.startswith("{") and teks.endswith("}")):
+        return None
+    try:
+        data = json.loads(teks)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    nama = data.get("name")
+    if nama not in nama_tool:
+        return None
+    argumen = data.get("parameters") or data.get("arguments") or {}
+    if not isinstance(argumen, dict):
+        return None
+    return [{"name": nama, "args": argumen, "id": "pulih-dari-teks"}]
+
+
 def _kumpulkan_sumber(keluaran: str, sumber: list[dict]) -> None:
     for baris in keluaran.splitlines():
         if baris.startswith("[Sumber: "):
@@ -252,6 +283,8 @@ async def run_agent_stream(
     # Fase 1 — pemilihan tool (tidak bisa streaming).
     keputusan = await llm.bind_tools(tools).ainvoke(pesan)
     panggilan = getattr(keputusan, "tool_calls", None) or []
+    if not panggilan:
+        panggilan = _tool_call_dari_teks(keputusan.content, set(peta_tool)) or []
 
     if not panggilan:
         # Tidak butuh tool: jawaban sudah lengkap di fase ini. Tidak dipecah

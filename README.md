@@ -246,6 +246,10 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Validasi unggahan: ekstensi + MIME type + file signature (magic bytes), batas ukuran ditegakkan saat streaming.
 - [x] SQL tool berjalan sebagai PostgreSQL user read-only (`sva_readonly`) dengan `SELECT` hanya pada `chat_stats` & `documents`.
 - [x] Streaming response via SSE (`/chat/stream`) dengan kursor mengetik di UI.
+- [x] UI: token warna terang/gelap mengikuti sistem, animasi masuk pesan, indikator
+      berpikir, auto-scroll, textarea tumbuh otomatis, dan `prefers-reduced-motion`
+      dihormati.
+- [x] Pemulihan tool call yang keluar sebagai teks (lihat catatan di bawah).
 - [x] Hybrid search (vector + full-text Indonesia) dengan Reciprocal Rank Fusion.
 - [x] Embedding bge-m3 (recall@3 pada korpus uji: 71% -> 100%).
 - [x] Test otomatis: 96 test pytest.
@@ -274,6 +278,21 @@ Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18
 | AGENT-002 (pertanyaan ambigu) | lolos — "jam berapa masuk kerja" → `rag_search`, "berapa dokumen" → `sql_query` |
 | SQL dengan skema | lolos — agent memakai kolom nyata (sebelumnya mengarang `user_id`) |
 | AGENT-001 (sapaan) | lolos — `llm_direct`, "Selamat pagi! Semoga hari Anda menyenangkan!" |
+
+### Tool call berbentuk teks
+
+`llama3.1` kadang tidak mengisi `tool_calls` dan malah menuliskan panggilannya
+sebagai JSON biasa di dalam konten:
+
+```json
+{"name": "sql_query", "parameters": {"query": "SELECT ..."}}
+```
+
+Tanpa penanganan, JSON itu tampil sebagai jawaban **dan** tersimpan ke riwayat,
+lalu meracuni pemilihan tool pada pertanyaan berikutnya — inilah penyebab
+kegagalan RAG-001 dan SQL-001 yang hanya muncul di browser (sesi panjang),
+tidak pernah pada uji API bersesi baru. `_tool_call_dari_teks` memulihkannya
+menjadi panggilan tool yang sebenarnya.
 
 ### Perutean sapaan
 

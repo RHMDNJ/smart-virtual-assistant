@@ -13,8 +13,7 @@ export default function LoginForm({ onLoggedIn }) {
     setLoading(true);
     setError(null);
     try {
-      const user = await login(username, password);
-      onLoggedIn(user);
+      onLoggedIn(await login(username, password));
     } catch (err) {
       setError(
         err?.response?.status === 401
@@ -26,16 +25,25 @@ export default function LoginForm({ onLoggedIn }) {
     }
   }
 
+  const field =
+    "w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm outline-none transition " +
+    "placeholder:text-muted/70 focus:border-brand focus:ring-4 focus:ring-brand/15";
+
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-50">
+    <div className="grid min-h-full place-items-center px-4 py-10">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-sm"
+        className="w-full max-w-sm animate-scale-in rounded-2xl border border-line bg-raised p-7 shadow-xl shadow-black/[.04]"
       >
-        <h1 className="mb-1 text-lg font-semibold">Smart Virtual Assistant</h1>
-        <p className="mb-5 text-sm text-gray-500">Masuk untuk melanjutkan.</p>
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-brand text-xl text-brand-ink shadow-lg shadow-brand/25">
+            ✦
+          </div>
+          <h1 className="text-lg font-semibold tracking-tight">Smart Virtual Assistant</h1>
+          <p className="mt-1 text-sm text-muted">Masuk untuk melanjutkan.</p>
+        </div>
 
-        <label className="mb-1 block text-sm font-medium" htmlFor="username">
+        <label className="mb-1.5 block text-xs font-medium text-muted" htmlFor="username">
           Username
         </label>
         <input
@@ -43,10 +51,11 @@ export default function LoginForm({ onLoggedIn }) {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoComplete="username"
-          className="mb-4 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500"
+          autoFocus
+          className={`${field} mb-4`}
         />
 
-        <label className="mb-1 block text-sm font-medium" htmlFor="password">
+        <label className="mb-1.5 block text-xs font-medium text-muted" htmlFor="password">
           Password
         </label>
         <input
@@ -55,17 +64,29 @@ export default function LoginForm({ onLoggedIn }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
-          className="mb-5 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500"
+          className={`${field} mb-5`}
         />
 
-        {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+        {error && (
+          <p
+            key={error}
+            role="alert"
+            data-error
+            className="mb-4 animate-shake rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400"
+          >
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"
           disabled={loading || !username || !password}
-          className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-medium text-brand-ink shadow-lg shadow-brand/25 transition active:scale-[.98] disabled:opacity-45 disabled:shadow-none"
         >
-          {loading ? "Masuk…" : "Masuk"}
+          {loading && (
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          )}
+          {loading ? "Memeriksa…" : "Masuk"}
         </button>
       </form>
     </div>

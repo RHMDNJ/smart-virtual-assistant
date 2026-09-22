@@ -1,11 +1,24 @@
 import ReactMarkdown from "react-markdown";
 
-const TOOL_LABEL = {
-  rag_search: "📚 RAG",
-  image_ocr: "🖼️ OCR",
-  sql_query: "🗄️ SQL",
-  llm_direct: "💬 LLM",
+const TOOL_META = {
+  rag_search: { label: "Dokumen", icon: "📚" },
+  image_ocr: { label: "OCR gambar", icon: "🖼️" },
+  sql_query: { label: "Database", icon: "🗄️" },
+  llm_direct: { label: "Jawaban langsung", icon: "💬" },
 };
+
+function Avatar({ isUser }) {
+  return (
+    <div
+      className={`grid h-8 w-8 shrink-0 select-none place-items-center rounded-full text-[13px] font-semibold ${
+        isUser ? "bg-brand text-brand-ink" : "border border-line bg-raised text-muted"
+      }`}
+      aria-hidden="true"
+    >
+      {isUser ? "A" : "✦"}
+    </div>
+  );
+}
 
 export default function MessageBubble({
   role,
@@ -16,35 +29,62 @@ export default function MessageBubble({
   streaming = false,
 }) {
   const isUser = role === "user";
+  const tool = TOOL_META[toolUsed];
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
-      <div
-        className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-          isUser ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"
-        }`}
-      >
+    <div
+      data-msg={role}
+      data-streaming={streaming ? "1" : undefined}
+      className={`flex animate-fade-up gap-3 ${isUser ? "flex-row-reverse" : ""}`}
+    >
+      <Avatar isUser={isUser} />
+
+      <div className={`flex min-w-0 max-w-[min(42rem,78%)] flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
         {attachment && (
-          <div className="mb-1 text-xs opacity-80">🖼️ {attachment}</div>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised px-2.5 py-1 text-xs text-muted">
+            <span aria-hidden="true">🖼️</span>
+            {attachment}
+          </span>
         )}
 
-        <div className="prose prose-sm max-w-none">
-          <ReactMarkdown>{message}</ReactMarkdown>
+        <div
+          className={`rounded-2xl px-4 py-2.5 text-[15px] shadow-sm ring-1 transition-colors ${
+            isUser
+              ? "rounded-br-md bg-brand text-brand-ink ring-black/5"
+              : "rounded-bl-md bg-raised text-ink ring-line"
+          }`}
+        >
+          <div className="markdown" data-bubble>
+            <ReactMarkdown>{message}</ReactMarkdown>
+          </div>
           {streaming && (
-            <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-gray-400 align-middle" />
+            <span
+              className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[3px] animate-caret-blink bg-current align-baseline"
+              aria-hidden="true"
+            />
           )}
         </div>
 
-        {!isUser && toolUsed && !streaming && (
-          <div className="mt-1 text-xs opacity-60">
-            {TOOL_LABEL[toolUsed] || `🔧 ${toolUsed}`}
-          </div>
-        )}
-
-        {sources.length > 0 && (
-          <div className="mt-2 border-t border-gray-300 pt-1 text-xs opacity-70">
+        {!isUser && !streaming && (tool || sources.length > 0) && (
+          <div className="flex flex-wrap items-center gap-1.5 px-0.5" data-meta>
+            {tool && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-line bg-raised px-2 py-0.5 text-[11px] font-medium text-muted">
+                <span aria-hidden="true">{tool.icon}</span>
+                {tool.label}
+              </span>
+            )}
+            {sources.length > 0 && (
+              <span className="text-[11px] text-muted/80">Sumber:</span>
+            )}
             {sources.map((s, i) => (
-              <div key={i}>📄 Sumber: {s.filename}</div>
+              <span
+                key={i}
+                title={s.filename}
+                className="inline-flex max-w-[14rem] items-center gap-1 truncate rounded-full border border-line px-2 py-0.5 text-[11px] text-muted"
+              >
+                <span aria-hidden="true">📄</span>
+                <span className="truncate">{s.filename}</span>
+              </span>
             ))}
           </div>
         )}
