@@ -269,7 +269,13 @@ export default function ChatBox({ user, onLogout }) {
     }
   }
 
-  const menunggu = loading && messages.at(-1)?.role === "assistant" && !messages.at(-1)?.message;
+  // Unggahan berkas bisa memakan puluhan detik (PDF pindaian harus di-OCR),
+  // jadi fase itu perlu indikatornya sendiri — tanpa ini layar tampak diam.
+  const mengunggah = fase === "mengunggah";
+  const menunggu =
+    mengunggah ||
+    (loading && messages.at(-1)?.role === "assistant" && !messages.at(-1)?.message);
+  const labelTunggu = mengunggah ? "Mengunggah dan membaca berkas..." : "Sedang berpikir...";
 
   return (
     <div
@@ -477,7 +483,7 @@ export default function ChatBox({ user, onLogout }) {
             )
           )}
 
-          {menunggu && <ThinkingDots />}
+          {menunggu && <ThinkingDots label={labelTunggu} />}
 
           {error && (
             <p

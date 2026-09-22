@@ -354,7 +354,7 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Embedding bge-m3 (recall@3 pada korpus uji: 71% -> 100%).
 - [x] Pengelolaan knowledge base lewat UI (lihat, tulis, sunting, hapus, indeks ulang).
 - [x] PDF hasil pindai dibaca lewat OCR per-halaman.
-- [x] Test otomatis: 157 test pytest.
+- [x] Test otomatis: 165 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
 
@@ -396,6 +396,29 @@ kegagalan RAG-001 dan SQL-001 yang hanya muncul di browser (sesi panjang),
 tidak pernah pada uji API bersesi baru. `_tool_call_dari_teks` memulihkannya
 menjadi panggilan tool yang sebenarnya.
 
+### Riwayat bukan sumber fakta
+
+Pada sesi berriwayat panjang, model terbukti **menyalin angka dari jawabannya
+sendiri di masa lalu** — termasuk angka yang keliru — alih-alih memakai hasil
+tool pada giliran itu. Ini menghasilkan jawaban yang salah tapi terdengar yakin,
+jauh lebih berbahaya daripada menjawab "tidak ditemukan".
+
+Dua penangkalnya:
+
+- System prompt menegaskan riwayat hanya untuk memahami rujukan ("itu", "yang
+  tadi"), bukan sumber fakta.
+- Sebelum sintesis, pengingat disisipkan **ke dalam hasil tool terakhir**.
+  Percobaan pertama memakai `SystemMessage` di akhir percakapan, dan itu membuat
+  llama3.1 menuliskan penanda peran `assistant` ke dalam jawabannya.
+
+Selain itu, bila `sql_query` tidak mengembalikan apa pun, sistem mencoba sekali
+lagi lewat `rag_search` sebelum menyerah — llama3.1 kerap memilih SQL untuk
+pertanyaan yang jawabannya ada di dokumen.
+
+Terukur pada sesi dengan 251 pesan: sebelum perbaikan jawaban benar hanya 1 dari
+3 percobaan (sisanya mengarang "08.00–15.00" dan "buka 24 jam"); sesudahnya 5
+dari 5 benar, dan pertanyaan statistik tetap memakai SQL.
+
 ### Perutean sapaan
 
 `llama3.1` refleks memanggil tool begitu tools di-bind. Selama knowledge base
@@ -419,7 +442,7 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 .venv/bin/python -m pytest
 ```
 
-157 test, selesai ~28 detik. Poin penting desainnya:
+165 test, selesai ~29 detik. Poin penting desainnya:
 
 - **Database terpisah** (`agentic_rag_test`). `conftest.py` menolak jalan jika
   `DATABASE_URL` tidak mengandung kata `test`, dan mengosongkan tabel sebelum tiap test.

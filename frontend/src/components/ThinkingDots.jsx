@@ -1,4 +1,4 @@
-export default function ThinkingDots() {
+export default function ThinkingDots({ label = "Sedang berpikir..." }) {
   return (
     <div className="flex animate-fade-in gap-3 items-start" data-thinking>
       <div className="relative shrink-0">
@@ -23,9 +23,9 @@ export default function ThinkingDots() {
           ))}
         </div>
         <span className="text-xs text-muted font-normal pl-1">
-          Sedang berpikir...
+          {label}
         </span>
-        <span className="sr-only">SAVIRA sedang berpikir</span>
+        <span className="sr-only">{label}</span>
       </div>
     </div>
   );

@@ -7,6 +7,8 @@ untuk sapaan, dan model menjawab "tidak ada jawaban yang relevan" untuk sekadar
 "selamat pagi" — cacat yang terlihat user, ditemukan saat UAT.
 """
 
+import pathlib
+
 import pytest
 
 from agent import sapaan_saja
@@ -90,3 +92,61 @@ def test_kunci_arguments_juga_diterima():
 )
 def test_bukan_tool_call_dibiarkan(konten):
     assert _tool_call_dari_teks(konten, TOOLS) is None
+
+
+# --- riwayat bukan sumber fakta ---------------------------------------------
+
+def test_pengingat_disisipkan_pada_hasil_tool_terakhir():
+    """
+    Regresi: pada sesi berriwayat panjang, model terbukti menyalin angka dari
+    jawabannya sendiri di masa lalu — termasuk angka yang keliru — alih-alih
+    memakai hasil tool. Pengingat disisipkan ke dalam ToolMessage, BUKAN sebagai
+    SystemMessage di akhir, karena pesan sistem di posisi itu membuat llama3.1
+    menuliskan penanda peran "assistant" ke dalam jawaban.
+    """
+    import agent
+    from langchain_core.messages import SystemMessage, ToolMessage
+
+    sumber = pathlib.Path(agent.__file__).read_text()
+    assert "[Catatan sistem]" in sumber
+    # Pastikan pengingat menempel pada ToolMessage, bukan SystemMessage baru.
+    potongan = sumber.split("if pesan and isinstance(pesan[-1], ToolMessage):")[1][:400]
+    assert "content +=" in potongan
+    assert "SystemMessage(" not in potongan
+
+
+def test_aturan_riwayat_ada_di_system_prompt():
+    from agent import SYSTEM_PROMPT
+
+    assert "BUKAN sumber fakta" in SYSTEM_PROMPT
+    assert "hasil tool pada giliran ini" in SYSTEM_PROMPT
+
+
+# --- cadangan RAG ketika SQL tidak menemukan apa pun -------------------------
+
+@pytest.mark.parametrize(
+    "isi,kosong",
+    [
+        ("Query berhasil dijalankan, tetapi tidak ada hasil.", True),
+        ("Query ditolak: Hanya query SELECT yang diperbolehkan.", True),
+        ("Query gagal dijalankan: relation tidak ada", True),
+        ("[{'count': 12}]", False),
+        ("[{'filename': 'a.txt'}]", False),
+    ],
+)
+def test_deteksi_hasil_sql_kosong(isi, kosong):
+    """
+    llama3.1 kerap memilih sql_query untuk pertanyaan yang jawabannya ada di
+    dokumen, lalu menyerah. Deteksi ini memicu percobaan ulang lewat RAG.
+    """
+    from langchain_core.messages import ToolMessage
+
+    from agent import _hasil_sql_kosong
+
+    assert _hasil_sql_kosong([ToolMessage(content=isi, tool_call_id="x")]) is kosong
+
+
+def test_tanpa_hasil_tool_tidak_dianggap_kosong():
+    from agent import _hasil_sql_kosong
+
+    assert _hasil_sql_kosong([]) is False

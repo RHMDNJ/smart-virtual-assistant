@@ -49,6 +49,12 @@ Aturan pemilihan tool:
 
 Aturan menjawab:
 - Jawab SELALU dalam Bahasa Indonesia, apa pun bahasa yang muncul pada hasil tool.
+- Riwayat percakapan HANYA untuk memahami rujukan seperti "itu", "yang tadi", atau
+  "bagaimana dengan yang kedua". Riwayat BUKAN sumber fakta. Jangan pernah mengambil
+  angka, tanggal, atau ketentuan dari jawabanmu sendiri sebelumnya — jawaban lama bisa
+  saja keliru atau sudah kedaluwarsa.
+- Seluruh fakta dalam jawaban harus berasal dari hasil tool pada giliran ini. Bila tool
+  tidak mengembalikan fakta yang diminta, katakan tidak ditemukan.
 - Jawabanmu hanya boleh memuat fakta yang benar-benar ada pada hasil tool atau pada pesan user.
   DILARANG menambahkan detail, tanggal, angka, atau keterangan yang tidak ada di sana.
 - Jika informasi tidak tersedia pada hasil tool, katakan dengan jujur bahwa informasi tersebut
@@ -219,6 +225,18 @@ def _tool_call_dari_teks(konten, nama_tool: set[str]) -> list[dict] | None:
     return [{"name": nama, "args": argumen, "id": "pulih-dari-teks"}]
 
 
+_TANDA_SQL_GAGAL = ("tidak ada hasil", "query ditolak", "query gagal dijalankan")
+
+
+def _hasil_sql_kosong(pesan: list) -> bool:
+    """True bila hasil tool SQL terakhir tidak memuat data yang bisa dipakai."""
+    for m in reversed(pesan):
+        if isinstance(m, ToolMessage):
+            isi = str(m.content).lower()
+            return any(t in isi for t in _TANDA_SQL_GAGAL)
+    return False
+
+
 def _kumpulkan_sumber(keluaran: str, sumber: list[dict]) -> None:
     for baris in keluaran.splitlines():
         if baris.startswith("[Sumber: "):
@@ -319,6 +337,27 @@ async def run_agent_stream(
             _kumpulkan_sumber(hasil, sumber)
 
         pesan.append(ToolMessage(content=str(hasil), tool_call_id=panggil.get("id", "")))
+
+    # llama3.1 kerap memilih sql_query untuk pertanyaan yang jawabannya ada di
+    # dokumen, lalu menyerah karena query-nya memang tidak menemukan apa pun.
+    # Bila itu terjadi, coba sekali lagi lewat knowledge base sebelum menjawab.
+    if tool_terakhir == "sql_query" and _hasil_sql_kosong(pesan):
+        cadangan = await peta_tool["rag_search"].ainvoke({"query": user_message})
+        if isinstance(cadangan, str) and "Tidak ditemukan" not in cadangan:
+            tool_terakhir = "rag_search"
+            _kumpulkan_sumber(cadangan, sumber)
+            pesan.append(
+                ToolMessage(content=str(cadangan), tool_call_id="cadangan-rag")
+            )
+            yield {"type": "tool", "name": "rag_search"}
+
+    if pesan and isinstance(pesan[-1], ToolMessage):
+        pesan[-1].content += (
+            "\n\n[Catatan sistem] Susun jawaban HANYA dari hasil tool di atas. "
+            "Abaikan angka, tanggal, dan ketentuan yang muncul pada riwayat percakapan. "
+            "Bila hasil tool tidak memuat informasi yang ditanyakan, katakan bahwa "
+            "informasi tersebut tidak ditemukan — jangan menebak."
+        )
 
     # Fase 2 — sintesis jawaban, tanpa tools sehingga streaming aktif.
     potongan: list[str] = []
