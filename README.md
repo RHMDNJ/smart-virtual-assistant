@@ -62,6 +62,24 @@ npm run dev
 
 Buka `http://localhost:5173`.
 
+## Menjalankan — dari VSCode
+
+Tekan **F5** dan pilih salah satu konfigurasi di `.vscode/launch.json`:
+
+| Konfigurasi | Yang terjadi |
+|---|---|
+| **Aplikasi di Chrome** | Menjalankan backend + frontend, lalu membuka Chrome dengan debugger ter-attach (breakpoint di `.jsx` langsung aktif) |
+| **Backend (debug Python)** | Backend saja, dengan breakpoint Python lewat debugpy |
+| **Backend + Chrome** | Keduanya sekaligus; berhenti bersamaan |
+
+Task tersedia lewat **Terminal → Run Task**: `backend`, `frontend`, `stack`,
+`test`, dan `hentikan stack`. Task `stack` menunggu kedua server benar-benar
+siap (mendeteksi "Application startup complete" dan "ready in") sebelum Chrome
+dibuka, sehingga tidak mendarat di halaman kosong.
+
+Prasyarat tetap sama: PostgreSQL dan Ollama harus sudah jalan
+(`brew services start postgresql@17 ollama`).
+
 ## Menjalankan — Docker Compose (Postgres + Backend)
 
 > **Belum diverifikasi end-to-end.** Konfigurasi ini sudah diperbaiki dan lolos

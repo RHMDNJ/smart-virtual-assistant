@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Menjalankan backend + frontend lalu membuka Chrome yang sudah ter-attach
+      // debugger, sehingga breakpoint di file .jsx langsung berfungsi.
+      "name": "Aplikasi di Chrome",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "sourceMaps": true,
+      "preLaunchTask": "stack",
+      "userDataDir": "${workspaceFolder}/.vscode/.chrome-profile"
+    },
+    {
+      // Backend saja, dengan breakpoint Python. Butuh: uv pip install debugpy
+      "name": "Backend (debug Python)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Backend + Chrome (debug keduanya)",
+      "configurations": ["Backend (debug Python)", "Aplikasi di Chrome"],
+      "stopAll": true
+    }
+  ]
+}
