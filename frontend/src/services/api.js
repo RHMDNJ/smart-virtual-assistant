@@ -95,14 +95,21 @@ export async function streamChatMessage(sessionId, message, imageId, handler = {
   const payload = { session_id: sessionId, message };
   if (imageId) payload.image_id = imageId;
 
-  const res = await fetch(`${API_BASE_URL}/chat/stream`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}/chat/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // fetch melempar TypeError("Failed to fetch") saat server tak terjangkau —
+    // pesan mentah browser itu tidak berarti apa pun bagi user.
+    throw new Error("Gagal menghubungi server. Pastikan backend berjalan.");
+  }
 
   if (res.status === 401) {
     tanganiTidakBerwenang();

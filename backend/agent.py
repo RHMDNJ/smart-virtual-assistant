@@ -4,6 +4,8 @@ Agent Orchestrator (Bagian 3.1 & 14) — LLM memilih tool (RAG / OCR / SQL) sesu
 kebutuhan pertanyaan user, lalu menyusun jawaban akhir menggunakan Local LLM (Ollama).
 """
 
+import re
+
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.messages import (
     AIMessage,
@@ -134,6 +136,45 @@ def run_agent(
     return {"answer": answer, "tool_used": tool_used, "sources": sources}
 
 
+# Sapaan dan basa-basi. llama3.1 refleks memanggil tool begitu tools di-bind,
+# dan sejak knowledge base berisi banyak dokumen, RAG mengembalikan potongan
+# tak nyambung sehingga model menjawab "tidak ada jawaban yang relevan" untuk
+# sekadar "selamat pagi". Prompt sudah dipertegas dan tidak cukup, jadi pesan
+# sosial murni dirutekan lebih awal tanpa melibatkan tool.
+_POLA_SAPAAN = re.compile(
+    r"^(halo|hai|hi|hei|hello|selamat\s+(pagi|siang|sore|malam)|assalamu.?alaikum|"
+    r"pagi|siang|sore|malam|terima\s*kasih|makasih|thanks|thank\s*you|"
+    r"apa\s+kabar|sampai\s+jumpa|dadah|bye|oke|ok|sip|baik)"
+    # Partikel penutup yang lazim: "terima kasih ya", "halo kak", "pagi pak".
+    r"(\s+(ya|yaa|yah|dong|deh|banget|banyak|sekali|kak|pak|bu|bang|min|gan|semua))*"
+    r"[\s!.,?~-]*$",
+    re.IGNORECASE,
+)
+
+# System prompt terpisah untuk sapaan. Prompt utama penuh instruksi tentang tool
+# dan "katakan jika informasi tidak ditemukan", sehingga model membalas sapaan
+# dengan kaku — "Tidak ada jawaban yang perlu diberikan."
+PROMPT_SAPAAN = """Kamu adalah Smart Virtual Assistant, asisten internal berbahasa Indonesia.
+
+User sedang menyapa atau berbasa-basi, bukan meminta informasi.
+Balas dengan ramah, wajar, dan singkat (satu sampai dua kalimat).
+Jangan menyebut dokumen, database, hasil pencarian, atau tool apa pun.
+Jangan mengatakan informasi tidak ditemukan — tidak ada yang sedang dicari.
+"""
+
+
+
+def sapaan_saja(pesan: str) -> bool:
+    """
+    True jika SELURUH pesan hanya berupa sapaan/basa-basi.
+
+    Polanya terjangkar sampai akhir kalimat, sehingga "Halo, berapa sisa cuti?"
+    tidak ikut tertangkap — hanya sapaan murni yang dilewatkan tanpa tool.
+    """
+    bersih = pesan.strip()
+    return len(bersih) <= 40 and bool(_POLA_SAPAAN.match(bersih))
+
+
 _tools_cache: list | None = None
 
 
@@ -187,6 +228,26 @@ async def run_agent_stream(
     if image_path:
         masukan = f"{user_message}\n\n(File gambar terlampir di path: {image_path})"
     pesan.append(HumanMessage(content=masukan))
+
+    if sapaan_saja(user_message) and not image_path:
+        # Sapaan: langsung dijawab dengan prompt khusus, sekaligus streaming penuh.
+        pesan_sapaan: list[BaseMessage] = [SystemMessage(content=PROMPT_SAPAAN)]
+        pesan_sapaan.extend(_to_langchain_messages(chat_history))
+        pesan_sapaan.append(HumanMessage(content=user_message))
+
+        potongan: list[str] = []
+        async for chunk in llm.astream(pesan_sapaan):
+            teks = getattr(chunk, "content", "") or ""
+            if teks:
+                potongan.append(teks)
+                yield {"type": "token", "text": teks}
+        yield {
+            "type": "done",
+            "answer": "".join(potongan),
+            "tool_used": "llm_direct",
+            "sources": [],
+        }
+        return
 
     # Fase 1 — pemilihan tool (tidak bisa streaming).
     keputusan = await llm.bind_tools(tools).ainvoke(pesan)

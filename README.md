@@ -273,14 +273,20 @@ Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18
 | Frontend: login, logout, sembunyi upload | lolos (diuji di Chrome) |
 | AGENT-002 (pertanyaan ambigu) | lolos — "jam berapa masuk kerja" → `rag_search`, "berapa dokumen" → `sql_query` |
 | SQL dengan skema | lolos — agent memakai kolom nyata (sebelumnya mengarang `user_id`) |
-| AGENT-001 (pertanyaan umum) | **sebagian** — jawaban sudah benar & tanpa karangan, tetapi `llama3.1` masih memanggil `rag_search` |
+| AGENT-001 (sapaan) | lolos — `llm_direct`, "Selamat pagi! Semoga hari Anda menyenangkan!" |
 
-Catatan AGENT-001: halusinasinya sudah hilang setelah system prompt dipertegas — sapaan
-kini dijawab "Selamat pagi!" saja. Yang tersisa hanyalah panggilan tool yang mubazir
-(`rag_search` dengan query kosong), dan itu refleks `llama3.1` saat tools di-bind, bukan
-bug kode. `rag_tool` sudah menghentikan query kosong lebih awal agar tidak memanggil
-embedding model. Perbaikan tuntas butuh model dengan disiplin tool lebih baik
-(mis. `qwen2.5`).
+### Perutean sapaan
+
+`llama3.1` refleks memanggil tool begitu tools di-bind. Selama knowledge base
+masih kecil dampaknya hanya satu langkah mubazir, tetapi setelah berisi 12
+dokumen, RAG mengembalikan potongan tak nyambung dan model menjawab *"Tidak ada
+jawaban yang relevan untuk 'Selamat pagi!'"* — cacat yang terlihat user,
+ditemukan lewat UAT di browser.
+
+Mempertegas system prompt sudah dicoba dan tidak cukup. Karena itu pesan yang
+**seluruhnya** berupa sapaan dirutekan lebih awal tanpa melibatkan tool, memakai
+system prompt terpisah (`PROMPT_SAPAAN`). Polanya terjangkar sampai akhir
+kalimat, sehingga "Halo, berapa sisa cuti?" tetap masuk jalur RAG.
 
 ## Testing
 
