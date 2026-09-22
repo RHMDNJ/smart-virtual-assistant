@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import MessageBubble from "./MessageBubble.jsx";
 import ThinkingDots from "./ThinkingDots.jsx";
+import AttachmentPreview, { isGambar } from "./AttachmentPreview.jsx";
 import KnowledgeBase from "./KnowledgeBase.jsx";
 import UploadButton from "./UploadButton.jsx";
 import { streamChatMessage, uploadFile } from "../services/api.js";
@@ -41,7 +42,10 @@ export default function ChatBox({ user, onLogout }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [pendingImage, setPendingImage] = useState(null);
+  // Berkas ditahan di klien sampai user menekan Kirim, supaya caption dan
+  // lampiran berangkat bersamaan seperti pada aplikasi pesan.
+  const [lampiran, setLampiran] = useState(null);       // { berkas, previewUrl }
+  const [fase, setFase] = useState(null);               // "mengunggah" | "menjawab"
   const [bukaKB, setBukaKB] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [theme, setTheme] = useState(() => {
@@ -102,6 +106,13 @@ export default function ChatBox({ user, onLogout }) {
     akhirRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
 
+  // Object URL pratinjau harus dilepas agar tidak membocorkan memori.
+  useEffect(() => {
+    return () => {
+      if (lampiran?.previewUrl) URL.revokeObjectURL(lampiran.previewUrl);
+    };
+  }, [lampiran]);
+
   // Textarea tumbuh mengikuti isi, dibatasi agar tidak menelan layar.
   useEffect(() => {
     const el = textareaRef.current;
@@ -124,25 +135,85 @@ export default function ChatBox({ user, onLogout }) {
     setPendingImage(null);
   }
 
+  function pilihBerkas(berkas) {
+    if (lampiran?.previewUrl) URL.revokeObjectURL(lampiran.previewUrl);
+    setError(null);
+    setLampiran({
+      berkas,
+      previewUrl: isGambar(berkas.name) ? URL.createObjectURL(berkas) : null,
+    });
+  }
+
+  function batalkanLampiran() {
+    if (lampiran?.previewUrl) URL.revokeObjectURL(lampiran.previewUrl);
+    setLampiran(null);
+  }
+
   async function handleSend(teksLangsung) {
     const text = (teksLangsung ?? input).trim();
-    if (!text || loading) return;
+    const berkas = lampiran?.berkas ?? null;
+    if ((!text && !berkas) || loading) return;
 
-    const attachment = pendingImage;
+    // Gambar tanpa caption tetap perlu pertanyaan agar agent tahu harus apa.
+    const pesanTampil = text || (berkas ? `Lampiran: ${berkas.name}` : "");
+    const pesanDikirim =
+      text || (berkas && isGambar(berkas.name) ? "Tolong baca dan jelaskan isi gambar ini." : "");
+
     setMessages((prev) => [
       ...prev,
-      { role: "user", message: text, attachment: attachment?.filename },
+      {
+        role: "user",
+        message: pesanTampil,
+        attachment: berkas
+          ? { nama: berkas.name, previewUrl: lampiran.previewUrl, gambar: isGambar(berkas.name) }
+          : undefined,
+      },
     ]);
     setInput("");
-    setPendingImage(null);
+    setLampiran(null);
     setLoading(true);
     setError(null);
 
+    // --- unggah lebih dulu bila ada lampiran ---
+    let imageId = null;
+    if (berkas) {
+      setFase("mengunggah");
+      try {
+        const hasil = await uploadFile(berkas);
+        imageId = hasil.image_id || null;
+        if (!imageId) {
+          // Dokumen: beri tahu hasil indexing sebelum menjawab.
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", message: `**${hasil.filename}** — ${hasil.detail || hasil.status}` },
+          ]);
+        }
+      } catch (err) {
+        setMessages((prev) => prev.slice(0, -1));
+        setError(
+          err?.response?.status === 403
+            ? "Role Anda tidak diizinkan mengunggah berkas."
+            : err?.response?.data?.detail || "Gagal mengunggah berkas."
+        );
+        setLoading(false);
+        setFase(null);
+        return;
+      }
+    }
+
+    if (!pesanDikirim) {
+      // Dokumen diunggah tanpa caption: cukup laporkan hasil indexing.
+      setLoading(false);
+      setFase(null);
+      return;
+    }
+
+    setFase("menjawab");
     setMessages((prev) => [...prev, { role: "assistant", message: "", streaming: true }]);
 
     try {
       let terkumpul = "";
-      await streamChatMessage(SESSION_ID, text, attachment?.imageId, {
+      await streamChatMessage(SESSION_ID, pesanDikirim, imageId, {
         onTool: (name) => perbaruiTerakhir({ toolUsed: name }),
         onToken: (potongan) => {
           terkumpul += potongan;
@@ -163,32 +234,6 @@ export default function ChatBox({ user, onLogout }) {
     } catch (err) {
       setMessages((prev) => prev.slice(0, -1));
       setError(err?.message || "Gagal menghubungi server. Pastikan backend berjalan.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleUpload(file) {
-    if (!file) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await uploadFile(file);
-      if (res.image_id) setPendingImage({ imageId: res.image_id, filename: res.filename });
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          message: `**${res.filename}** — ${res.status}\n\n${res.detail || ""}`,
-          toolUsed: null,
-        },
-      ]);
-    } catch (err) {
-      setError(
-        err?.response?.status === 403
-          ? "Role Anda tidak diizinkan mengunggah file."
-          : err?.response?.data?.detail || "Gagal mengunggah file."
-      );
     } finally {
       setLoading(false);
     }
@@ -220,7 +265,7 @@ export default function ChatBox({ user, onLogout }) {
     if (user?.role === "READ_ONLY") return;
     const files = e.dataTransfer?.files;
     if (files && files.length > 0) {
-      handleUpload(files[0]);
+      pilihBerkas(files[0]);
     }
   }
 
@@ -456,27 +501,18 @@ export default function ChatBox({ user, onLogout }) {
       {/* Input Area */}
       <div className="border-t border-line/80 bg-surface/85 backdrop-blur-md">
         <div className="mx-auto w-full max-w-4xl px-4 py-3">
-          {/* Pending Attachment Notification */}
-          {pendingImage && (
-            <div className="mb-2.5 flex animate-slide-up items-center gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs text-amber-800 dark:text-amber-200 shadow-sm">
-              <span className="text-base" aria-hidden="true">🖼️</span>
-              <div className="truncate">
-                <span className="font-semibold">{pendingImage.filename}</span>
-                <span className="text-muted text-[11px] ml-1.5">(Siap dibaca via OCR pada pertanyaan ini)</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPendingImage(null)}
-                className="ml-auto shrink-0 rounded-lg px-2 py-0.5 font-medium transition hover:bg-amber-500/20 active:scale-95"
-              >
-                Batal
-              </button>
-            </div>
+          {lampiran && (
+            <AttachmentPreview
+              berkas={lampiran.berkas}
+              previewUrl={lampiran.previewUrl}
+              onBatal={batalkanLampiran}
+              disabled={loading}
+            />
           )}
 
           <div className="flex items-end gap-2 rounded-2xl border border-line/80 bg-raised p-2 shadow-sm transition focus-within:border-brand/60 focus-within:ring-4 focus-within:ring-brand/10">
             {user?.role !== "READ_ONLY" && (
-              <UploadButton onUpload={handleUpload} disabled={loading} />
+              <UploadButton onPilih={pilihBerkas} disabled={loading} />
             )}
             <textarea
               ref={textareaRef}
@@ -485,18 +521,18 @@ export default function ChatBox({ user, onLogout }) {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={
-                pendingImage
-                  ? "Tanyakan sesuatu tentang gambar ini…"
+                lampiran
+                  ? "Tulis keterangan atau pertanyaan tentang lampiran ini…"
                   : "Tulis pertanyaan tentang kepegawaian, regulasi, atau data daerah…"
               }
               className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-[15px] outline-none placeholder:text-muted/60 leading-normal"
             />
             <button
               onClick={() => handleSend()}
-              disabled={loading || !input.trim()}
+              disabled={loading || (!input.trim() && !lampiran)}
               aria-label="Kirim"
               className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 active:scale-95 ${
-                input.trim()
+                input.trim() || lampiran
                   ? "bg-brand text-brand-ink shadow-md shadow-brand/25"
                   : "bg-muted/15 text-muted/50 cursor-not-allowed"
               } disabled:opacity-40 disabled:shadow-none`}

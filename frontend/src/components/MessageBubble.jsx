@@ -80,12 +80,21 @@ export default function MessageBubble({
       <Avatar isUser={isUser} />
 
       <div className={`flex min-w-0 max-w-[min(44rem,82%)] flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
-        {attachment && (
-          <span className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-raised px-3 py-1 text-xs text-muted shadow-sm">
-            <span aria-hidden="true">🖼️</span>
-            <span className="font-medium">{attachment}</span>
-          </span>
-        )}
+        {attachment &&
+          (attachment.gambar && attachment.previewUrl ? (
+            <img
+              src={attachment.previewUrl}
+              alt={attachment.nama}
+              className="max-h-52 rounded-xl border border-line object-cover shadow-sm"
+            />
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-raised px-3 py-1 text-xs text-muted shadow-sm">
+              <span aria-hidden="true">
+                {attachment.nama?.toLowerCase().endsWith(".pdf") ? "📕" : "📄"}
+              </span>
+              <span className="font-medium">{attachment.nama}</span>
+            </span>
+          ))}
 
         <div
           className={`relative rounded-2xl px-4 py-3 text-[15px] shadow-sm transition-all ${

@@ -1,12 +1,12 @@
 import { useRef } from "react";
 
-export default function UploadButton({ onUpload, disabled }) {
+export default function UploadButton({ onPilih, disabled }) {
   const inputRef = useRef(null);
 
   function handleChange(e) {
     const file = e.target.files?.[0];
     if (file) {
-      onUpload(file);
+      onPilih(file);
       e.target.value = "";
     }
   }
@@ -24,8 +24,8 @@ export default function UploadButton({ onUpload, disabled }) {
         type="button"
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
-        title="Unggah dokumen (PDF, TXT, MD) atau gambar (OCR)"
-        aria-label="Unggah dokumen atau gambar"
+        title="Lampirkan dokumen (PDF, TXT, MD) atau gambar (OCR)"
+        aria-label="Lampirkan dokumen atau gambar"
         className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted/80 transition-all hover:bg-brand/10 hover:text-brand active:scale-95 disabled:opacity-40"
       >
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
