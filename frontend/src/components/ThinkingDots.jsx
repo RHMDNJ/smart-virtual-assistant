@@ -23,9 +23,9 @@ export default function ThinkingDots() {
           ))}
         </div>
         <span className="text-xs text-muted font-normal pl-1">
-          Menyusun jawaban…
+          Sedang berpikir...
         </span>
-        <span className="sr-only">Assistant sedang berpikir</span>
+        <span className="sr-only">SAVIRA sedang berpikir</span>
       </div>
     </div>
   );
