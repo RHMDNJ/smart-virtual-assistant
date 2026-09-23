@@ -150,3 +150,59 @@ def test_tanpa_hasil_tool_tidak_dianggap_kosong():
     from agent import _hasil_sql_kosong
 
     assert _hasil_sql_kosong([]) is False
+
+
+# --- pertanyaan tentang jati diri SAVIRA ------------------------------------
+
+JATI_DIRI = [
+    "Siapa penciptamu?",
+    "siapa pembuatmu",
+    "kamu buatan siapa",
+    "kamu dibuat oleh siapa",
+    "siapa yang mengembangkan kamu?",
+    "Kamu ini apa?",
+    "siapa kamu",
+    "apa itu SAVIRA",
+    "kamu bisa bantu apa?",
+    "apa saja yang bisa kamu lakukan",
+]
+
+BUKAN_JATI_DIRI = [
+    "Berapa hari cuti tahunan pegawai?",
+    "apa isi dokumennya?",
+    "Siapa Bupati Hulu Sungai Selatan?",
+    "Ada berapa dokumen di knowledge base?",
+]
+
+
+@pytest.mark.parametrize("pesan", JATI_DIRI)
+def test_pertanyaan_jati_diri_dikenali(pesan):
+    """
+    Pertanyaan tentang SAVIRA sendiri tidak butuh tool. Sebelum dirutekan,
+    "Kamu ini apa?" memicu pencarian dokumen lalu dijawab "tidak bisa menjawab".
+    """
+    from agent import tanya_jati_diri
+
+    assert tanya_jati_diri(pesan)
+
+
+@pytest.mark.parametrize("pesan", BUKAN_JATI_DIRI)
+def test_pertanyaan_informasi_bukan_jati_diri(pesan):
+    from agent import tanya_jati_diri
+
+    assert not tanya_jati_diri(pesan)
+
+
+def test_prompt_jati_diri_menyebut_pencipta_dan_sudut_pandang():
+    from agent import PROMPT_JATI_DIRI
+
+    assert "Rahmad" in PROMPT_JATI_DIRI
+    # Tanpa arahan ini, model menjawab "Rahmad adalah Pencipta Anda" —
+    # keliru sudut pandang, seolah lawan bicaranya yang punya pencipta.
+    assert "orang pertama" in PROMPT_JATI_DIRI
+
+
+def test_system_prompt_menyebut_pencipta():
+    from agent import SYSTEM_PROMPT
+
+    assert "Rahmad" in SYSTEM_PROMPT

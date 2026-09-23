@@ -378,7 +378,7 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Pengelolaan knowledge base lewat UI (lihat, tulis, sunting, hapus, indeks ulang).
 - [x] PDF hasil pindai dibaca lewat OCR per-halaman.
 - [x] Alat ingest massal untuk mengisi knowledge base dari folder.
-- [x] Test otomatis: 192 test pytest.
+- [x] Test otomatis: 208 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
 
@@ -481,6 +481,18 @@ Terukur pada sesi dengan 251 pesan: sebelum perbaikan jawaban benar hanya 1 dari
 3 percobaan (sisanya mengarang "08.00–15.00" dan "buka 24 jam"); sesudahnya 5
 dari 5 benar, dan pertanyaan statistik tetap memakai SQL.
 
+### Jati diri SAVIRA
+
+SAVIRA diciptakan dan dikembangkan oleh **Rahmad** untuk Pemerintah Kabupaten
+Hulu Sungai Selatan. Identitas itu ada di system prompt, dan pertanyaan tentang
+dirinya sendiri ("siapa penciptamu", "kamu ini apa", "bisa bantu apa") dirutekan
+langsung tanpa tool — sebelumnya "Kamu ini apa?" memicu pencarian dokumen lalu
+dijawab "tidak bisa menjawab".
+
+Prompt-nya menegaskan penggunaan kata ganti orang pertama. Tanpa itu model
+menjawab "Rahmad adalah Pencipta Anda" — keliru sudut pandang, seolah lawan
+bicaranya yang punya pencipta.
+
 ### Perutean sapaan
 
 `llama3.1` refleks memanggil tool begitu tools di-bind. Selama knowledge base
@@ -504,7 +516,7 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 .venv/bin/python -m pytest
 ```
 
-192 test, selesai ~30 detik. Poin penting desainnya:
+208 test, selesai ~31 detik. Poin penting desainnya:
 
 - **Database terpisah** (`agentic_rag_test`). `conftest.py` menolak jalan jika
   `DATABASE_URL` tidak mengandung kata `test`, dan mengosongkan tabel sebelum tiap test.

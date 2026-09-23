@@ -25,6 +25,10 @@ from tools.sql_tool import build_sql_tool
 SYSTEM_PROMPT = """Kamu adalah SAVIRA (Smart Virtual Assistant), asisten digital
 Pemerintah Kabupaten Hulu Sungai Selatan, berbasis Agentic RAG.
 
+Kamu diciptakan dan dikembangkan oleh Rahmad. Kamu berjalan sepenuhnya di
+infrastruktur lokal pemerintah daerah dan tidak mengirim data ke layanan awan.
+Bicaralah tentang dirimu dengan kata ganti orang pertama ("saya"), bukan "Anda".
+
 Kamu memiliki beberapa tools:
 
 1. rag_search
@@ -164,6 +168,7 @@ _POLA_SAPAAN = re.compile(
 # dengan kaku — "Tidak ada jawaban yang perlu diberikan."
 PROMPT_SAPAAN = """Kamu adalah SAVIRA (Smart Virtual Assistant), asisten digital
 Pemerintah Kabupaten Hulu Sungai Selatan. Kamu berbahasa Indonesia.
+Kamu diciptakan dan dikembangkan oleh Rahmad.
 
 User sedang menyapa atau berbasa-basi, bukan meminta informasi.
 Balas dengan ramah, wajar, dan singkat (satu sampai dua kalimat).
@@ -171,6 +176,36 @@ Jangan menyebut dokumen, database, hasil pencarian, atau tool apa pun.
 Jangan mengatakan informasi tidak ditemukan — tidak ada yang sedang dicari.
 """
 
+
+
+_POLA_JATI_DIRI = re.compile(
+    r"(siapa\s+(kamu|anda|kah\s+kamu|nama\s*mu|pencipta\s*mu|pembuat\s*mu|"
+    r"yang\s+(membuat|menciptakan|mengembangkan))|"
+    r"kamu\s+(ini\s+)?(apa|siapa)|apa\s+itu\s+savira|"
+    r"(kamu|anda)\s+(buatan|dibuat|diciptakan|dikembangkan)\s*(oleh)?\s*siapa|"
+    r"bisa\s+(apa|bantu\s+apa)|apa\s+(saja\s+)?(yang\s+)?(bisa|dapat)\s+kamu)",
+    re.IGNORECASE,
+)
+
+PROMPT_JATI_DIRI = """Kamu adalah SAVIRA (Smart Virtual Assistant), asisten digital
+Pemerintah Kabupaten Hulu Sungai Selatan. Kamu diciptakan dan dikembangkan oleh Rahmad.
+
+Kemampuanmu: menjawab pertanyaan dari dokumen yang tersimpan di knowledge base,
+membaca teks pada gambar dan dokumen hasil pindai, serta mengambil data statistik
+dari basis data.
+
+Kamu berjalan sepenuhnya di infrastruktur lokal pemerintah daerah — tidak ada data
+yang dikirim ke layanan awan.
+
+User sedang bertanya tentang dirimu, bukan meminta informasi dari dokumen.
+Jawab dalam Bahasa Indonesia, memakai kata ganti orang pertama ("saya"), ramah dan
+singkat. Jangan menyebut dokumen, hasil pencarian, atau tool apa pun.
+"""
+
+
+def tanya_jati_diri(pesan: str) -> bool:
+    """True bila user menanyakan identitas atau kemampuan SAVIRA sendiri."""
+    return bool(_POLA_JATI_DIRI.search(pesan.strip()))
 
 
 def sapaan_saja(pesan: str) -> bool:
@@ -289,9 +324,13 @@ async def run_agent_stream(
         masukan = f"{user_message}\n\n(Dokumen terlampir: {document_filename})"
     pesan.append(HumanMessage(content=masukan))
 
-    if sapaan_saja(user_message) and not image_path:
-        # Sapaan: langsung dijawab dengan prompt khusus, sekaligus streaming penuh.
-        pesan_sapaan: list[BaseMessage] = [SystemMessage(content=PROMPT_SAPAAN)]
+    # Pertanyaan tentang jati diri maupun sapaan sama-sama tidak butuh tool;
+    # keduanya dijawab langsung sehingga bisa streaming penuh.
+    if (sapaan_saja(user_message) or tanya_jati_diri(user_message)) and not image_path:
+        prompt_langsung = (
+            PROMPT_JATI_DIRI if tanya_jati_diri(user_message) else PROMPT_SAPAAN
+        )
+        pesan_sapaan: list[BaseMessage] = [SystemMessage(content=prompt_langsung)]
         pesan_sapaan.extend(_to_langchain_messages(chat_history))
         pesan_sapaan.append(HumanMessage(content=user_message))
 
