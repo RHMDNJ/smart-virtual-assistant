@@ -110,6 +110,16 @@ export default function KnowledgeBase({ user, onClose }) {
     if (!berkas) return;
     setSibuk(true);
     setError(null);
+    // Umpan balik harus muncul SEKARANG: mengindeks PDF bisa belasan detik, dan
+    // PDF hasil pindai lebih dari dua menit karena setiap halaman di-OCR.
+    // Tanpa ini panel tampak membeku dan terasa tidak merespons.
+    setInfo(
+      `Mengunggah ${berkas.name}… ${
+        berkas.name.toLowerCase().endsWith(".pdf")
+          ? "PDF hasil pindai perlu OCR dan bisa memakan beberapa menit."
+          : "Mohon tunggu."
+      }`
+    );
     try {
       const hasil = await uploadFile(berkas);
       setInfo(`${hasil.filename} — ${hasil.detail || hasil.status}`);
@@ -159,8 +169,15 @@ export default function KnowledgeBase({ user, onClose }) {
           <div className="ml-auto flex items-center gap-2">
             {bolehTulis && (
               <>
-                <label className="cursor-pointer rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition hover:bg-line/50 hover:text-ink">
-                  Unggah berkas
+                <label
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition hover:bg-line/50 hover:text-ink ${
+                    sibuk ? "pointer-events-none opacity-60" : ""
+                  }`}
+                >
+                  {sibuk && (
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  )}
+                  {sibuk ? "Memproses…" : "Unggah berkas"}
                   <input
                     type="file"
                     accept=".pdf,.txt,.md"
@@ -192,11 +209,14 @@ export default function KnowledgeBase({ user, onClose }) {
         {(error || info) && (
           <p
             data-kb-pesan
-            className={`animate-slide-up border-b border-line px-5 py-2 text-xs ${
+            className={`flex animate-slide-up items-center gap-2 border-b border-line px-5 py-2 text-xs ${
               error ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-brand/10 text-brand"
             }`}
           >
-            {error || info}
+            {sibuk && !error && (
+              <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            )}
+            <span>{error || info}</span>
           </p>
         )}
 
