@@ -481,6 +481,22 @@ Terukur pada sesi dengan 251 pesan: sebelum perbaikan jawaban benar hanya 1 dari
 3 percobaan (sisanya mengarang "08.00–15.00" dan "buka 24 jam"); sesudahnya 5
 dari 5 benar, dan pertanyaan statistik tetap memakai SQL.
 
+### Format jawaban (Markdown)
+
+Jawaban ditulis dan dirender sebagai Markdown, memakai `remark-gfm` sehingga
+tabel, coret, daftar centang, dan autolink ikut berfungsi. Tanpa plugin itu
+tabel hanya tampil sebagai deretan tanda pipa — gaya CSS untuk tabel sudah ada
+sejak awal tetapi tidak pernah terpakai.
+
+System prompt meminta daftar berpoin untuk lebih dari dua hal, tabel untuk
+perbandingan, dan **tebal** untuk angka atau ketentuan kunci; jawaban satu-dua
+kalimat tetap ditulis sebagai paragraf biasa.
+
+HTML mentah sengaja **tidak** diaktifkan (tanpa `rehype-raw`). Isi jawaban
+berasal dari dokumen yang diperlakukan sebagai data tak tepercaya, jadi tag HTML
+di dalamnya tidak boleh ikut dieksekusi. Tautan dibuka di tab baru dengan
+`rel="noopener noreferrer"`.
+
 ### Jati diri SAVIRA
 
 SAVIRA diciptakan dan dikembangkan oleh **Rahmad** untuk Pemerintah Kabupaten

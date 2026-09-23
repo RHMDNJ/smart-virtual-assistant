@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const TOOL_META = {
   rag_search: {
@@ -104,7 +105,27 @@ export default function MessageBubble({
           }`}
         >
           <div className="markdown" data-bubble>
-            <ReactMarkdown>{message}</ReactMarkdown>
+            <ReactMarkdown
+              // GFM diperlukan untuk tabel, coret, daftar centang, dan autolink.
+              // Tanpa plugin ini tabel hanya tampil sebagai baris pipa.
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // HTML mentah sengaja TIDAK diaktifkan (tanpa rehype-raw):
+                // isi jawaban berasal dari dokumen yang diperlakukan sebagai
+                // data tak tepercaya, jadi tag HTML di dalamnya tidak boleh
+                // ikut dieksekusi.
+                a: ({ node, ...sisa }) => (
+                  <a {...sisa} target="_blank" rel="noopener noreferrer" />
+                ),
+                table: ({ node, ...sisa }) => (
+                  <div className="my-2 overflow-x-auto">
+                    <table {...sisa} />
+                  </div>
+                ),
+              }}
+            >
+              {message}
+            </ReactMarkdown>
           </div>
           {streaming && (
             <span

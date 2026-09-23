@@ -165,6 +165,40 @@
   .markdown tr:nth-child(even) td {
     background-color: rgb(var(--surface) / 0.4);
   }
+
+  .markdown h1,
+  .markdown h2,
+  .markdown h3 {
+    @apply mb-1 mt-3 font-semibold leading-snug;
+  }
+  .markdown h1 {
+    @apply text-base;
+  }
+  .markdown h2 {
+    @apply text-[15px];
+  }
+  .markdown h3 {
+    @apply text-sm;
+  }
+  .markdown blockquote {
+    @apply my-2 border-l-2 border-line pl-3 italic;
+  }
+  .markdown hr {
+    @apply my-3 border-line;
+  }
+  .markdown del {
+    @apply opacity-60;
+  }
+  /* Daftar centang GFM: hilangkan bullet agar kotaknya rapi sejajar. */
+  .markdown li:has(> input[type="checkbox"]) {
+    @apply list-none -ml-5;
+  }
+  .markdown input[type="checkbox"] {
+    @apply mr-1.5 align-middle;
+  }
+  .markdown thead th {
+    @apply bg-surface font-semibold;
+  }
   .markdown a {
     @apply text-brand font-medium underline underline-offset-2 transition hover:opacity-80;
   }
