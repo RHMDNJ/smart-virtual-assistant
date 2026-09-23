@@ -207,8 +207,10 @@ export async function deleteDocument(filename) {
   return data;
 }
 
-export async function reindexDocuments() {
-  const { data } = await api.post("/documents/reindex");
+export async function reindexDocuments(semua = false) {
+  // Bawaan: hanya bagian yang belum punya embedding. `semua` memaksa seluruh
+  // knowledge base dihitung ulang — lama, dan hanya perlu setelah ganti model.
+  const { data } = await api.post(`/documents/reindex?semua=${semua ? "true" : "false"}`);
   return data;
 }
 

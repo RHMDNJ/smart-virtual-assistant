@@ -232,15 +232,26 @@ def dokumen_ada(db: Session, filename: str) -> bool:
     return hitung_chunk(db, filename) > 0
 
 
-def hitung_ulang_embedding(db: Session, ukuran_batch: int = 32) -> int:
+def hitung_ulang_embedding(
+    db: Session, ukuran_batch: int = 32, semua: bool = False
+) -> dict:
     """
-    Hitung ulang embedding seluruh chunk tanpa mengubah teksnya.
+    Hitung embedding chunk tanpa mengubah teksnya.
 
-    Dipakai setelah mengganti embedding model, atau bila indeks dicurigai basi.
+    Secara bawaan hanya chunk yang BELUM punya embedding yang diproses — dokumen
+    yang sudah terindeks tidak dihitung ulang percuma. Menghitung ulang seluruh
+    knowledge base memakan waktu lama dan hanya perlu setelah embedding model
+    diganti, jadi itu harus diminta secara eksplisit lewat `semua=True`.
     """
-    baris = list(db.execute(select(Document.id, Document.content)).all())
+    stmt = select(Document.id, Document.content)
+    if not semua:
+        stmt = stmt.where(Document.embedding.is_(None))
+
+    baris = list(db.execute(stmt).all())
+    keseluruhan = db.execute(select(func.count(Document.id))).scalar_one()
+
     if not baris:
-        return 0
+        return {"reindexed": 0, "skipped": keseluruhan, "total": keseluruhan}
 
     total = 0
     for i in range(0, len(baris), ukuran_batch):
@@ -250,4 +261,8 @@ def hitung_ulang_embedding(db: Session, ukuran_batch: int = 32) -> int:
             db.query(Document).filter(Document.id == b.id).update({"embedding": v})
         db.commit()
         total += len(potongan)
-    return total
+    return {
+        "reindexed": total,
+        "skipped": keseluruhan - total,
+        "total": keseluruhan,
+    }

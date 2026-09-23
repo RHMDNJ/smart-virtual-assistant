@@ -166,7 +166,7 @@ Beberapa hal yang sengaja berbeda dari setup lokal:
 | POST   | `/documents`    | Tambah dokumen baru (409 bila nama sudah ada)     | USER |
 | PUT    | `/documents/{nama}` | Ganti isi dokumen, indeks ulang otomatis      | USER |
 | DELETE | `/documents/{nama}` | Hapus dokumen dari knowledge base             | ADMIN |
-| POST   | `/documents/reindex` | Hitung ulang embedding seluruh bagian        | ADMIN |
+| POST   | `/documents/reindex` | Hitung embedding bagian yang tertinggal (`?semua=true` untuk seluruhnya) | ADMIN |
 | POST   | `/upload`       | Upload dokumen (PDF/TXT/MD) atau gambar           | USER |
 
 ### Streaming (`/chat/stream`)
@@ -255,7 +255,11 @@ melatih ulang bobot model.
   satu transaksi, sehingga dokumen tidak pernah setengah terhapus bila embedding
   gagal di tengah jalan.
 - **Hapus** dokumen (khusus ADMIN, dengan konfirmasi).
-- **Indeks ulang** seluruh bagian setelah berganti embedding model (khusus ADMIN).
+- **Indeks yang tertinggal** — hanya bagian yang belum punya embedding. Unggahan
+  baru sudah terindeks saat diunggah, jadi tombol ini biasanya melaporkan
+  "semua sudah mutakhir" dalam hitungan milidetik.
+- **Paksa semua** — menghitung ulang seluruh knowledge base. Hanya perlu setelah
+  mengganti embedding model, dan dilindungi konfirmasi karena prosesnya lama.
 
 Dua perilaku yang dipilih sengaja:
 

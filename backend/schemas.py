@@ -80,6 +80,8 @@ class DocumentUpdateRequest(BaseModel):
 
 class ReindexResponse(BaseModel):
     reindexed: int
+    skipped: int = 0
+    total: int = 0
 
 
 class HealthResponse(BaseModel):

@@ -384,20 +384,24 @@ def delete_document(
 
 @app.post("/documents/reindex", response_model=ReindexResponse)
 def reindex_documents(
+    semua: bool = False,
     db: Session = Depends(get_db),
     _: User = Depends(require_role(ROLE_ADMIN)),
 ):
     """
-    Hitung ulang embedding seluruh chunk tanpa mengubah teksnya.
+    Hitung embedding chunk yang belum punya.
 
-    Operasi berat dan menyentuh seluruh knowledge base, karena itu dibatasi ADMIN.
+    Secara bawaan hanya bagian yang tertinggal yang diproses; dokumen yang sudah
+    terindeks tidak dihitung ulang percuma. `semua=true` memaksa seluruh
+    knowledge base dihitung ulang — hanya perlu setelah embedding model diganti,
+    dan pada knowledge base besar bisa memakan waktu lama.
     """
     try:
-        jumlah = hitung_ulang_embedding(db)
+        hasil = hitung_ulang_embedding(db, semua=semua)
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Gagal mengindeks ulang: {exc}") from exc
-    return ReindexResponse(reindexed=jumlah)
+    return ReindexResponse(**hasil)
 
 
 @app.post("/upload", response_model=UploadResponse)

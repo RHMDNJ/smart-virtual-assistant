@@ -109,12 +109,55 @@ def test_hapus_dokumen_tidak_ada(client, header_admin):
 def test_reindex_hanya_admin(client, header_user, header_admin):
     buat(client, header_user, "r.txt", "Isi untuk diindeks ulang.")
     assert client.post("/documents/reindex", headers=header_user).status_code == 403
+    assert client.post("/documents/reindex", headers=header_admin).status_code == 200
+
+
+def test_reindex_bawaan_melewati_yang_sudah_terindeks(client, header_user, header_admin):
+    """
+    Dokumen yang sudah punya embedding tidak boleh dihitung ulang percuma —
+    menghitung ulang seluruh knowledge base memakan waktu lama.
+    """
+    buat(client, header_user, "sudah.txt", "Sudah terindeks saat diunggah.")
+
+    hasil = client.post("/documents/reindex", headers=header_admin).json()
+    assert hasil["reindexed"] == 0
+    assert hasil["skipped"] == hasil["total"] >= 1
+
+
+def test_reindex_semua_memproses_seluruhnya(client, header_user, header_admin):
+    """Paksa semua hanya perlu setelah embedding model diganti."""
+    buat(client, header_user, "a.txt", "Dokumen pertama.")
+    buat(client, header_user, "b.txt", "Dokumen kedua.")
+
+    hasil = client.post("/documents/reindex?semua=true", headers=header_admin).json()
+    assert hasil["reindexed"] == hasil["total"] >= 2
+    assert hasil["skipped"] == 0
+
+
+def test_reindex_mengisi_embedding_yang_kosong(client, header_user, header_admin):
+    """Bagian yang embedding-nya hilang harus terisi oleh mode bawaan."""
+    from sqlalchemy import update
+
+    from database import SessionLocal
+    from models import Document
+
+    buat(client, header_user, "bolong.txt", "Embedding-nya akan dikosongkan.")
+
+    db = SessionLocal()
+    try:
+        db.execute(update(Document).values(embedding=None))
+        db.commit()
+    finally:
+        db.close()
+
     hasil = client.post("/documents/reindex", headers=header_admin).json()
     assert hasil["reindexed"] >= 1
+    assert hasil["skipped"] == 0
 
 
 def test_reindex_tanpa_dokumen(client, header_admin):
-    assert client.post("/documents/reindex", headers=header_admin).json() == {"reindexed": 0}
+    hasil = client.post("/documents/reindex", headers=header_admin).json()
+    assert hasil == {"reindexed": 0, "skipped": 0, "total": 0}
 
 
 # --- unggah berkas -----------------------------------------------------------

@@ -31,6 +31,7 @@ export default function KnowledgeBase({ user, onClose }) {
   const [sunting, setSunting] = useState(null); // {filename, content, baru}
   const [menyimpan, setMenyimpan] = useState(false);
   const [konfirmasiHapus, setKonfirmasiHapus] = useState(null);
+  const [konfirmasiSemua, setKonfirmasiSemua] = useState(false);
   const [sibuk, setSibuk] = useState(false);
 
   const bolehTulis = user?.role === "USER" || user?.role === "ADMIN";
@@ -131,13 +132,22 @@ export default function KnowledgeBase({ user, onClose }) {
     }
   }
 
-  async function indeksUlang() {
+  async function indeksUlang(semua = false) {
     setSibuk(true);
     setError(null);
-    setInfo("Menghitung ulang embedding…");
+    setKonfirmasiSemua(false);
+    setInfo(
+      semua
+        ? "Menghitung ulang SELURUH knowledge base… ini bisa memakan waktu lama."
+        : "Memeriksa bagian yang belum terindeks…"
+    );
     try {
-      const hasil = await reindexDocuments();
-      setInfo(`${hasil.reindexed} bagian berhasil diindeks ulang.`);
+      const hasil = await reindexDocuments(semua);
+      setInfo(
+        hasil.reindexed === 0
+          ? `Semua sudah mutakhir — ${hasil.total} bagian, tidak ada yang perlu diindeks.`
+          : `${hasil.reindexed} bagian diindeks, ${hasil.skipped} dilewati karena sudah mutakhir.`
+      );
     } catch (err) {
       setError(err?.response?.data?.detail || "Gagal mengindeks ulang.");
       setInfo(null);
@@ -273,15 +283,25 @@ export default function KnowledgeBase({ user, onClose }) {
         {user?.role === "ADMIN" && dokumen.length > 0 && (
           <footer className="flex items-center gap-3 border-t border-line px-5 py-3">
             <p className="text-[11px] text-muted">
-              Indeks ulang diperlukan setelah mengganti embedding model.
+              Unggahan baru langsung terindeks. Tombol ini hanya melengkapi bagian
+              yang tertinggal.
             </p>
             <button
               type="button"
-              onClick={indeksUlang}
+              onClick={() => indeksUlang(false)}
               disabled={sibuk}
               className="ml-auto rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition hover:bg-line/50 hover:text-ink disabled:opacity-50"
             >
-              Indeks ulang semua
+              Indeks yang tertinggal
+            </button>
+            <button
+              type="button"
+              onClick={() => setKonfirmasiSemua(true)}
+              disabled={sibuk}
+              title="Hanya perlu setelah mengganti embedding model"
+              className="rounded-lg px-2 py-1.5 text-xs text-muted/70 underline underline-offset-2 transition hover:text-ink disabled:opacity-50"
+            >
+              Paksa semua
             </button>
           </footer>
         )}
@@ -346,6 +366,35 @@ export default function KnowledgeBase({ user, onClose }) {
                 </button>
               )}
             </footer>
+          </div>
+        </div>
+      )}
+
+      {konfirmasiSemua && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-navy/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm animate-scale-in rounded-2xl border border-line bg-raised p-5 shadow-2xl">
+            <h3 className="text-sm font-semibold">Hitung ulang seluruh knowledge base?</h3>
+            <p className="mt-1.5 text-sm text-muted">
+              Seluruh <b className="text-ink">{totalChunk} bagian</b> akan dihitung ulang
+              embedding-nya, termasuk yang sudah mutakhir. Prosesnya bisa memakan waktu
+              lama. Ini hanya perlu setelah mengganti embedding model.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setKonfirmasiSemua(false)}
+                className="rounded-lg border border-line px-3 py-1.5 text-xs text-muted transition hover:bg-line/50 hover:text-ink"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => indeksUlang(true)}
+                className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-brand-ink transition active:scale-95"
+              >
+                Ya, hitung ulang semua
+              </button>
+            </div>
           </div>
         </div>
       )}
