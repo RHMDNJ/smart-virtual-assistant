@@ -220,6 +220,29 @@ berikutnya — server menerjemahkannya ke path di `UPLOAD_DIR` (divalidasi agar 
 dipakai membaca file lain), lalu agent menjalankan `image_ocr`. Client tidak pernah
 mengirim path file.
 
+## Mengisi knowledge base dalam jumlah banyak
+
+```bash
+cd backend
+.venv/bin/python ingest_folder.py ~/Documents/bahan-savira            # indeks folder
+.venv/bin/python ingest_folder.py ~/bahan --dry-run                   # lihat rencana dulu
+.venv/bin/python ingest_folder.py ~/bahan --replace                   # timpa yang sudah ada
+```
+
+Menelusuri folder secara rekursif dan mengindeks `.pdf` (termasuk hasil pindai,
+lewat OCR), `.txt`, `.md`, dan `.html`. Berkas yang sudah ada dilewati kecuali
+`--replace` diberikan, dan satu berkas bermasalah tidak menghentikan sisanya.
+
+Untuk halaman situs yang disimpan dari browser, navigasi, skrip, dan footer
+dibuang lebih dulu — tanpa itu potongan menu situs ikut terindeks dan bersaing
+dengan isi sebenarnya saat pencarian.
+
+> **Jangan mengisi knowledge base dengan dokumen karangan.** Selama pengembangan,
+> 12 dokumen sintetis dipakai untuk mengukur mutu retrieval, dan sempat terbawa
+> ke knowledge base aktif — SAVIRA menjawab "uang harian perjalanan dinas
+> Rp 350.000" dengan yakin, padahal angka itu fiktif. Dokumen uji kini dihapus.
+> Isi hanya dengan bahan yang otoritatif.
+
 ## Melatih SAVIRA — kelola knowledge base
 
 Tombol **Knowledge base** di header membuka panel pengelolaan. Bagi sistem RAG,
@@ -354,7 +377,8 @@ Ini adalah **skeleton fungsional**, bukan sistem production-ready. Yang sudah di
 - [x] Embedding bge-m3 (recall@3 pada korpus uji: 71% -> 100%).
 - [x] Pengelolaan knowledge base lewat UI (lihat, tulis, sunting, hapus, indeks ulang).
 - [x] PDF hasil pindai dibaca lewat OCR per-halaman.
-- [x] Test otomatis: 180 test pytest.
+- [x] Alat ingest massal untuk mengisi knowledge base dari folder.
+- [x] Test otomatis: 192 test pytest.
 
 Yang **belum** diimplementasikan (lihat roadmap di dokumen arsitektur, Bagian 18 & 25) dan perlu ditambahkan sebelum produksi:
 
@@ -480,7 +504,7 @@ psql -d agentic_rag_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
 .venv/bin/python -m pytest
 ```
 
-180 test, selesai ~30 detik. Poin penting desainnya:
+192 test, selesai ~30 detik. Poin penting desainnya:
 
 - **Database terpisah** (`agentic_rag_test`). `conftest.py` menolak jalan jika
   `DATABASE_URL` tidak mengandung kata `test`, dan mengosongkan tabel sebelum tiap test.
